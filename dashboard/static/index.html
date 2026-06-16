@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#00f0ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WY6Y CyberFusion">
+  <title>WY6Y CyberFusion • YSF Hotspot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-cyan: #00f0ff;
+      --neon-green: #00ff9f;
+      --neon-magenta: #ff00aa;
+      --neon-yellow: #ffff00;
+      --neon-red: #ff3366;
+      --bg: #050505;
+      --card: #0a0a0f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "Share Tech Mono", "VT323", ui-monospace, monospace;
+      background: var(--bg);
+      color: #c0c0c0;
+      margin: 0;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      padding-bottom: env(safe-area-inset-bottom, 12px);
+    }
+
+    .cyber-grid {
+      background-image:
+        linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .scanlines { position: relative; }
+    .scanlines::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(transparent 50%, rgba(0, 240, 255, 0.025) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      animation: scan 4s linear infinite;
+      z-index: 2;
+      mix-blend-mode: screen;
+    }
+
+    @keyframes scan {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 200px; }
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px 18px 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .neon-cyan { color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan); }
+    .neon-green { color: var(--neon-green); text-shadow: 0 0 8px var(--neon-green); }
+    .neon-magenta { color: var(--neon-magenta); text-shadow: 0 0 8px var(--neon-magenta); }
+    .neon-yellow { color: var(--neon-yellow); text-shadow: 0 0 8px var(--neon-yellow); }
+    .neon-red { color: var(--neon-red); text-shadow: 0 0 8px var(--neon-red); }
+
+    .cyber-title {
+      font-family: "VT323", monospace;
+      font-size: clamp(2rem, 8vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: 6px;
+      line-height: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+    }
+
+    .header-sub {
+      font-size: 10px;
+      color: rgba(0, 255, 159, 0.6);
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 3px 10px;
+      border: 1px solid rgba(0, 255, 159, 0.4);
+      color: var(--neon-green);
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      margin-right: 6px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .uplink-line {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-align: right;
+      margin-top: 6px;
+    }
+
+    .hud-border {
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      box-shadow:
+        0 0 0 1px rgba(0, 240, 255, 0.1),
+        0 0 12px rgba(0, 240, 255, 0.15),
+        inset 0 0 12px rgba(0, 240, 255, 0.05);
+      background: var(--card);
+      border-radius: 2px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+    }
+
+    .hud-label {
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      opacity: 0.6;
+      text-transform: uppercase;
+    }
+
+    .room-value {
+      font-family: "VT323", monospace;
+      font-size: clamp(3.5rem, 17vw, 5.25rem);
+      line-height: 1.05;
+      font-weight: 700;
+      color: var(--neon-green);
+      text-shadow: 0 0 12px var(--neon-green), 0 0 24px rgba(0, 255, 159, 0.35);
+      min-height: 1.05em;
+      word-break: break-word;
+      letter-spacing: 2px;
+    }
+
+    .detail-line {
+      font-size: clamp(0.95rem, 4vw, 1.15rem);
+      color: rgba(0, 240, 255, 0.9);
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    .freq-line {
+      font-size: 0.7rem;
+      opacity: 0.55;
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    .on-air {
+      font-family: "VT323", monospace;
+      font-size: clamp(3.25rem, 18vw, 5.25rem);
+      line-height: 1;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 14px var(--neon-yellow), 0 0 28px rgba(255, 255, 0, 0.45);
+      min-height: 1em;
+      letter-spacing: 4px;
+      padding: 4px 0;
+    }
+
+    .on-air-meta {
+      font-size: clamp(0.85rem, 3.5vw, 1rem);
+      opacity: 0.65;
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    .traffic-list {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .traffic-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px dotted rgba(0, 255, 159, 0.15);
+      font-size: 0.85rem;
+    }
+
+    .traffic-row .cs {
+      color: var(--neon-green);
+      font-family: "VT323", monospace;
+      font-size: clamp(1.5rem, 7vw, 2rem);
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(0, 255, 159, 0.5);
+    }
+
+    .traffic-row.local .cs { color: #666; text-shadow: none; }
+
+    .traffic-row .meta {
+      color: #666;
+      font-size: 0.7rem;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-grid .full { grid-column: 1 / -1; }
+
+    .neon-button {
+      display: block;
+      width: 100%;
+      min-height: 58px;
+      padding: 10px 12px;
+      background: transparent;
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      font-family: inherit;
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+      line-height: 1.35;
+    }
+
+    .neon-button:hover {
+      background: var(--neon-cyan);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-cyan);
+    }
+
+    .neon-button:active { transform: scale(0.97); }
+
+    .neon-button.green {
+      border-color: var(--neon-green);
+      color: var(--neon-green);
+    }
+    .neon-button.green:hover {
+      background: var(--neon-green);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-green);
+    }
+
+    .neon-button.magenta {
+      border-color: var(--neon-magenta);
+      color: var(--neon-magenta);
+    }
+    .neon-button.magenta:hover {
+      background: var(--neon-magenta);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-magenta);
+    }
+
+    .neon-button.yellow {
+      border-color: var(--neon-yellow);
+      color: var(--neon-yellow);
+    }
+    .neon-button.yellow:hover {
+      background: var(--neon-yellow);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-yellow);
+    }
+
+    .neon-button.red {
+      border-color: var(--neon-red);
+      color: var(--neon-red);
+    }
+    .neon-button.red:hover {
+      background: var(--neon-red);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-red);
+    }
+
+    .neon-button small {
+      display: block;
+      font-size: 0.58rem;
+      opacity: 0.65;
+      letter-spacing: 1px;
+      margin-top: 3px;
+      text-transform: none;
+    }
+
+    .terminal {
+      font-family: "Share Tech Mono", monospace;
+      background: #000;
+      border: 1px solid rgba(0, 255, 159, 0.2);
+      color: var(--neon-green);
+      font-size: 0.72rem;
+      line-height: 1.35;
+      height: 110px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      margin-top: 6px;
+    }
+
+    .wifi-status-line {
+      font-size: 0.75rem;
+      color: #888;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .wifi-form {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .wifi-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: var(--neon-cyan);
+      font-family: inherit;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+    }
+
+    .wifi-input::placeholder { color: #555; }
+
+    .wifi-list {
+      max-height: 180px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .wifi-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px dotted rgba(0, 240, 255, 0.15);
+      font-size: 0.75rem;
+    }
+
+    .wifi-row.active .wifi-ssid { color: var(--neon-green); }
+
+    .wifi-ssid {
+      color: var(--neon-cyan);
+      font-family: "VT323", monospace;
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+    }
+
+    .wifi-meta { color: #666; font-size: 0.65rem; margin-top: 2px; }
+
+    .wifi-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .wifi-actions button {
+      min-height: 32px;
+      padding: 4px 8px;
+      font-size: 0.6rem;
+      min-width: 64px;
+    }
+
+    .wifi-scan-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px dotted rgba(0, 255, 159, 0.12);
+      cursor: pointer;
+      font-size: 0.72rem;
+    }
+
+    .wifi-scan-row:hover { background: rgba(0, 240, 255, 0.05); }
+
+    .utility-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .utility-row .neon-button {
+      min-height: 36px;
+      flex: 1;
+      min-width: 100px;
+      font-size: 0.62rem;
+    }
+  </style>
+</head>
+<body class="cyber-grid scanlines">
+  <div class="wrap">
+    <header class="header">
+      <div>
+        <div class="cyber-title neon-cyan">WY6Y CYBERFUSION</div>
+        <div class="header-sub">YSF HOTSPOT UPLINK • PI ZERO 2 W</div>
+      </div>
+      <div>
+        <div class="badge">438.800</div>
+        <div class="uplink-line">
+          <span class="status-dot"></span>
+          <span id="link-status" class="neon-green">STANDBY</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="hud-border">
+      <div class="section-title neon-cyan">Current Room</div>
+      <div class="hud-label">Linked reflector</div>
+      <div id="room" class="room-value">UNLINKED</div>
+      <div id="detail" class="detail-line"></div>
+      <div id="freq" class="freq-line">Radio: 438.800 MHz · DN mode · Wires-X from FT-70D</div>
+    </section>
+
+    <section class="hud-border">
+      <div class="section-title neon-cyan">Incoming Traffic</div>
+      <div class="hud-label">On air now</div>
+      <div id="on-air" class="on-air">—</div>
+      <div id="on-air-meta" class="on-air-meta">idle</div>
+      <div class="section-title neon-green" style="margin-top:14px">Recent <span style="opacity:0.5;font-size:0.65rem">network</span></div>
+      <div id="traffic-list" class="traffic-list"></div>
+    </section>
+
+    <div class="section-title neon-cyan" style="margin:16px 0 10px">Reflector Links</div>
+    <div class="btn-grid">
+      <button class="neon-button green" data-t="US-Kansas-City">Kansas City<small>US-Kansas-City</small></button>
+      <button class="neon-button" data-t="US-America Link">America Link</button>
+      <button class="neon-button green" data-t="US-TEXAS-DFW">Texas Fusion</button>
+      <button class="neon-button magenta" data-t="GB-CQ-WORLD">Worldwide</button>
+      <button class="neon-button yellow full" data-t="ZZ Parrot">Parrot Test<small>PTT 3+ sec · wait 3 sec for echo</small></button>
+      <button class="neon-button red" id="unlink">Disconnect</button>
+      <button class="neon-button" id="reconnect">Reconnect Last</button>
+    </div>
+
+    <section class="hud-border" id="wifi-panel">
+      <div class="section-title neon-cyan">WiFi Configuration</div>
+      <div class="hud-label">Pi-Star style · add networks from hotspot or dashboard</div>
+      <div id="wifi-status" class="wifi-status-line">loading...</div>
+
+      <div class="wifi-form">
+        <input id="wifi-ssid" class="wifi-input" type="text" placeholder="SSID" autocomplete="off">
+        <input id="wifi-pass" class="wifi-input" type="password" placeholder="WiFi password" autocomplete="off">
+        <div class="btn-grid">
+          <button class="neon-button green" onclick="wifiAdd(true)">Save &amp; Connect</button>
+          <button class="neon-button" onclick="wifiAdd(false)">Save Only</button>
+          <button class="neon-button yellow full" onclick="wifiScan()">Scan Nearby</button>
+        </div>
+      </div>
+
+      <div class="section-title neon-green" style="margin-top:10px">Saved Networks</div>
+      <div id="wifi-saved" class="wifi-list"></div>
+
+      <div class="section-title neon-cyan" style="margin-top:10px;display:none" id="wifi-scan-title">Scan Results</div>
+      <div id="wifi-scan" class="wifi-list"></div>
+
+      <div class="utility-row" style="margin-top:10px">
+        <button class="neon-button green" onclick="wifi('force-ap')">Start Hotspot</button>
+        <button class="neon-button" onclick="wifi('force-client')">Try Client WiFi</button>
+      </div>
+    </section>
+
+    <div class="section-title neon-green" style="margin-top:14px">Gateway Log <span style="opacity:0.5;font-size:0.65rem">auto</span></div>
+    <div id="log" class="terminal"></div>
+
+    <div class="utility-row">
+      <button class="neon-button" onclick="refresh()">Refresh</button>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+async function refresh() {
+  const r = await fetch('/api/status').then(r=>r.json()).catch(()=>({}));
+  const roomEl = $('#room');
+  const linked = r.configured_startup || (r.recent_log_line && /linked/i.test(r.recent_log_line));
+  if (linked) {
+    roomEl.textContent = (r.configured_startup || 'LINKED').toUpperCase();
+    $('#detail').textContent = [r.last_linked, r.local_ip].filter(Boolean).join(' · ');
+    $('#link-status').textContent = 'LINKED';
+    $('#link-status').className = 'neon-green';
+  } else {
+    roomEl.textContent = 'UNLINKED';
+    $('#detail').textContent = r.local_ip || '';
+    $('#link-status').textContent = 'STANDBY';
+    $('#link-status').className = 'neon-cyan';
+  }
+}
+
+async function link(t) {
+  $('#room').textContent = 'LINKING...';
+  $('#detail').textContent = t;
+  $('#link-status').textContent = 'LINKING';
+  $('#link-status').className = 'neon-yellow';
+  const res = await fetch('/api/link', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target:t})});
+  const data = await res.json().catch(()=>({}));
+  if (!data.ok) {
+    $('#room').textContent = 'LINK FAILED';
+    $('#detail').textContent = data.message || 'ysf-link error';
+    $('#link-status').textContent = 'ERROR';
+    $('#link-status').className = 'neon-red';
+  }
+  setTimeout(refresh, 1500);
+}
+
+async function unlink() { await fetch('/api/unlink',{method:'POST'}); setTimeout(refresh,1200); }
+async function reconnect() { await fetch('/api/reconnect_last',{method:'POST'}); setTimeout(refresh,1500); }
+async function wifi(m) {
+  const r = await fetch('/api/wifi',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({mode:m})}).then(r=>r.json()).catch(()=>({}));
+  if (r.message) $('#wifi-status').textContent = r.message;
+  setTimeout(loadWifi, 1500);
+}
+
+async function loadWifi() {
+  const st = await fetch('/api/wifi/status').then(r=>r.json()).catch(()=>({}));
+  const el = $('#wifi-status');
+  if (st.mode === 'ap') {
+    el.innerHTML = '<span class="neon-yellow">HOTSPOT MODE</span> · join <b>WY6Y-Hotspot</b> · dashboard <b>' + (st.ap_ip || '192.168.50.1') + '</b>';
+  } else if (st.ssid) {
+    el.innerHTML = '<span class="neon-green">CONNECTED</span> · ' + st.ssid + ' · ' + (st.ip || 'no ip');
+  } else {
+    el.innerHTML = '<span class="neon-cyan">NO WIFI</span> · use hotspot or add a network below';
+  }
+
+  const saved = await fetch('/api/wifi/networks').then(r=>r.json()).catch(()=>({networks:[]}));
+  const box = $('#wifi-saved');
+  box.innerHTML = '';
+  const nets = saved.networks || [];
+  if (!nets.length) {
+    box.innerHTML = '<div class="wifi-meta">No saved networks yet</div>';
+  } else {
+    nets.forEach(n => {
+      const row = document.createElement('div');
+      row.className = 'wifi-row' + (n.active ? ' active' : '');
+      row.innerHTML = '<div><div class="wifi-ssid">' + n.ssid + '</div><div class="wifi-meta">prio ' + n.priority + (n.active ? ' · active' : '') + '</div></div>'
+        + '<div class="wifi-actions">'
+        + '<button class="neon-button green" onclick="wifiConnect(\'' + esc(n.name) + '\')">Connect</button>'
+        + '<button class="neon-button red" onclick="wifiDelete(\'' + esc(n.name) + '\')">Del</button>'
+        + '</div>';
+      box.appendChild(row);
+    });
+  }
+}
+
+function esc(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function pickScan(ssid) {
+  $('#wifi-ssid').value = ssid;
+  $('#wifi-pass').focus();
+}
+
+async function wifiAdd(connect) {
+  const ssid = $('#wifi-ssid').value.trim();
+  const password = $('#wifi-pass').value;
+  if (!ssid || !password) {
+    $('#wifi-status').textContent = 'Enter SSID and password';
+    return;
+  }
+  $('#wifi-status').textContent = connect ? 'Saving and connecting...' : 'Saving...';
+  const r = await fetch('/api/wifi/add', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ssid, password, connect})
+  }).then(r=>r.json()).catch(()=>({}));
+  $('#wifi-status').textContent = r.ok ? (r.message || 'Saved') : (r.error || r.message || 'Failed');
+  if (r.ok) { $('#wifi-pass').value = ''; setTimeout(loadWifi, connect ? 4000 : 1000); }
+}
+
+async function wifiConnect(name) {
+  $('#wifi-status').textContent = 'Connecting to ' + name + '...';
+  const r = await fetch('/api/wifi/connect', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})
+  }).then(r=>r.json()).catch(()=>({}));
+  $('#wifi-status').textContent = r.ok ? (r.message || 'Connected') : (r.error || r.message || 'Failed');
+  setTimeout(loadWifi, 4000);
+}
+
+async function wifiDelete(name) {
+  if (!confirm('Delete saved network ' + name + '?')) return;
+  const r = await fetch('/api/wifi/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})
+  }).then(r=>r.json()).catch(()=>({}));
+  $('#wifi-status').textContent = r.ok ? (r.message || 'Deleted') : (r.error || r.message || 'Failed');
+  loadWifi();
+}
+
+async function wifiScan() {
+  $('#wifi-status').textContent = 'Scanning (briefly leaves hotspot)...';
+  $('#wifi-scan-title').style.display = 'block';
+  const box = $('#wifi-scan');
+  box.innerHTML = '<div class="wifi-meta">scanning...</div>';
+  const r = await fetch('/api/wifi/scan').then(r=>r.json()).catch(()=>({}));
+  box.innerHTML = '';
+  if (!r.ok || !(r.networks || []).length) {
+    box.innerHTML = '<div class="wifi-meta">' + (r.error || 'No networks found — enter SSID manually') + '</div>';
+    $('#wifi-status').textContent = 'Scan done';
+    setTimeout(loadWifi, 1000);
+    return;
+  }
+  r.networks.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'wifi-scan-row';
+    row.onclick = () => pickScan(n.ssid);
+    row.innerHTML = '<span class="wifi-ssid">' + n.ssid + '</span><span class="wifi-meta">' + n.signal + '% · ' + n.security + '</span>';
+    box.appendChild(row);
+  });
+  $('#wifi-status').textContent = 'Tap a network to fill SSID, then enter password';
+  setTimeout(loadWifi, 1000);
+}
+
+$$('.neon-button[data-t]').forEach(b => b.onclick = () => link(b.dataset.t));
+$('#unlink').onclick = unlink;
+$('#reconnect').onclick = reconnect;
+
+async function loadLog() {
+  const r = await fetch('/api/log').then(r=>r.json()).catch(()=>({lines:[]}));
+  const el = $('#log'); el.innerHTML = '';
+  r.lines.forEach(l => { const d=document.createElement('div'); d.textContent=l; el.appendChild(d); });
+  el.scrollTop = el.scrollHeight;
+}
+
+function fmtKind(k) { return k === 'net' ? 'NET' : 'RF'; }
+
+async function loadTraffic() {
+  const r = await fetch('/api/traffic').then(r=>r.json()).catch(()=>({}));
+  const onAir = $('#on-air');
+  const meta = $('#on-air-meta');
+  const active = r.on_air || r.active;
+  if (active) {
+    const tag = active.local ? 'LOCAL' : (active.kind === 'net' ? 'INCOMING' : 'RF');
+    onAir.textContent = active.callsign;
+    meta.textContent = [tag, fmtKind(active.kind), active.dest, active.dgid ? 'DG ' + active.dgid : ''].filter(Boolean).join(' · ');
+  } else {
+    onAir.textContent = '—';
+    meta.textContent = 'idle';
+  }
+
+  const list = $('#traffic-list');
+  list.innerHTML = '';
+  const rows = (r.incoming && r.incoming.length) ? r.incoming : (r.recent || []).filter(e => e.kind === 'net');
+  if (!rows.length) {
+    const d = document.createElement('div');
+    d.className = 'traffic-row';
+    d.innerHTML = '<span class="meta">No network traffic yet</span>';
+    list.appendChild(d);
+    return;
+  }
+  rows.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'traffic-row' + (e.local ? ' local' : '');
+    const dur = e.duration ? e.duration.toFixed(1) + 's' : '';
+    const t = e.time || '';
+    const when = t.includes('T') ? t.replace('T', ' ').slice(11, 19) : t.slice(11, 19);
+    d.innerHTML = '<span class="cs">' + e.callsign + '</span>'
+      + '<span class="meta">' + [when, dur, e.dest, e.dgid ? 'DG ' + e.dgid : ''].filter(Boolean).join(' · ') + '</span>';
+    list.appendChild(d);
+  });
+}
+
+setInterval(() => { refresh(); loadTraffic(); loadLog(); loadWifi(); }, 5000);
+refresh(); loadTraffic(); loadLog(); loadWifi();
+</script>
+</body>
+</html>

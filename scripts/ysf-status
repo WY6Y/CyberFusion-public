@@ -1,0 +1,19 @@
+#!/bin/bash
+CONF="/etc/ysfgateway"
+LASTF="/var/run/cyberfusion-last"
+START=$(grep -i '^[ ]*Startup=' "$CONF" 2>/dev/null | cut -d= -f2- | tr -d ' \t' || echo "")
+LOG=$(journalctl -u ysfgateway --since "5 min ago" -o cat 2>/dev/null | grep -iE 'linked|unlink' | tail -1 || echo "")
+LAST=$(cat "$LASTF" 2>/dev/null || echo "")
+IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+TS=$(ip -4 addr show tailscale0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "")
+TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{printf "%.1f", $1/1000}' || echo "")
+if systemctl is-active ysfgateway &>/dev/null; then
+  ACTIVE=active
+elif pgrep -x YSFGateway &>/dev/null; then
+  ACTIVE=active
+else
+  ACTIVE=inactive
+fi
+cat <<JSON
+{"configured_startup":"$START","last_linked":"$LAST","recent_log_line":"$LOG","gateway_active":$( [ "$ACTIVE" = "active" ] && echo true || echo false ),"local_ip":"$IP","tailscale_ip":"$TS","cpu_temp_c":"$TEMP","hostname":"$(hostname)"}
+JSON

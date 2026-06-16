@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+TARGET="${1:-}"
+CONF="/etc/ysfgateway"
+LAST="/var/run/cyberfusion-last"
+[[ -z "$TARGET" ]] && { echo "Usage: $0 TARGET"; exit 1; }
+systemctl stop ysfgateway || true
+# Handles reflector names with spaces (e.g. US-America Link)
+if grep -q '^[[:space:]]*Startup=' "$CONF" 2>/dev/null; then
+  sed -i "s|^[[:space:]]*Startup=.*|Startup=${TARGET}|" "$CONF"
+else
+  sed -i "/^\[Network\]/a Startup=${TARGET}" "$CONF"
+fi
+echo "$TARGET" > "$LAST"
+systemctl start ysfgateway
+sleep 1
+echo "Linked to $TARGET"

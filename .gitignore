@@ -1,0 +1,32 @@
+# Compiled objects and in-tree build outputs (pre-built binaries live in binaries/)
+build/**/*.o
+build/**/*.d
+build/**/GitVersion.h
+# In-tree compiled binaries only (pre-built copies live in binaries/)
+build/MMDVMHost/MMDVMHost
+build/YSFClients/YSFGateway/YSFGateway
+build/YSFClients/YSFParrot/YSFParrot
+
+# Reference clone (large; re-clone if needed)
+nextion-reference/
+
+# Debian packages (reinstall via apt)
+*.deb
+
+# Placeholder / incomplete archives
+sources-for-zero.tar.gz
+
+# Local secrets (use .example templates in configs/)
+configs/wifi-client.nmconnection
+configs/*.local
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor / OS noise
+.DS_Store
+*~
+*.swp
+.idea/
+.vscode/

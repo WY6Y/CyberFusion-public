@@ -1,0 +1,111 @@
+WY6Y CyberFusion — Nextion 2.4" Layout (NX3224T024_011)
+==========================================================
+
+WHAT YOU HAVE
+-------------
+nextion/hmi/CyberFusion_WY6Y_Simplex_24_base.HMI
+  → G4KLX-compatible simplex 2.4" layout (from WA6HXG Blue v2.0). All MMDVMHost
+    field names (t0, t1, page MMDVM, page YSF, etc.) are already correct.
+
+nextion/assets/bg_*.png
+  → 320×240 CyberFusion backgrounds to import in Nextion Editor.
+
+FLASHING (USB TTL → display only, one time)
+--------------------------------------------
+1. Install Nextion Editor on Windows laptop.
+2. Connect USB-TTL to the display (not the Pi):
+   Display 5V  → TTL 5V
+   Display GND → TTL GND
+   Display TX  → TTL RX
+   Display RX  → TTL TX
+3. Power the display from TTL 5V (or separate 5V — do not use Pi yet).
+4. Follow steps below to compile, then either:
+   A) Editor: Upload to Nextion (serial), or
+   B) Copy the .tft from the Editor build folder to a blank microSD,
+      insert card, power display until "Update Succeeded".
+
+RUNNING (hat pins — same as Pi-Star)
+-------------------------------------
+After flash, wire the 4-pin harness to the AURSINC v1.5.2 Nextion header.
+USB-TTL is not used on the Pi.
+
+NEXTION EDITOR STEPS
+--------------------
+1. Open: nextion/hmi/CyberFusion_WY6Y_Simplex_24_base.HMI
+
+2. Set device (toolbar → Device):
+   Basic → NX3224T024_011  (your model)
+
+3. Save As: CyberFusion_WY6Y_Simplex_24.HMI
+
+4. For EACH page, replace the background image:
+   Page list (right panel):
+     MMDVM  → import assets/bg_mmdvm.png  (full screen pic, z=0 back)
+     YSF    → import assets/bg_ysf.png
+     DStar  → import assets/bg_dstar.png
+     DMR    → import assets/bg_dmr.png
+     P25    → import assets/bg_p25.png
+     NXDN   → import assets/bg_nxdn.png
+
+   Tip: Add Picture component if needed, drag to back, set .path to new PNG.
+
+5. Text styling (match WY6Y-Weather aesthetic):
+   - Primary values (t0, room/callsign fields): color 1024 → use custom #00FF9F (green)
+     or pick green in Editor (.pco property)
+   - Labels / secondary: #00F0FF cyan or gray
+   - Font: use built-in font 3 or 4 for large callsigns (VT323 not on Nextion — mono font closest)
+
+6. Pre-set frequencies on MMDVM page (optional, MMDVMHost also sends these):
+   Select t30 (RX): txt = "438.8000 MHz"
+   Select t32 (TX): txt = "438.8000 MHz"
+   Select t31: txt = "Oklahoma City" or your location
+
+7. Hide clutter (YSF-only hotspot):
+   D-Star / DMR / P25 / NXDN pages stay in HMI (MMDVMHost may switch briefly)
+   but you rarely see them. No need to delete pages.
+
+8. Compile (toolbar) → creates .tft in Editor build folder.
+
+9. Flash .tft to display (USB TTL + upload, or microSD method).
+
+PI CONFIG (after display is flashed)
+------------------------------------
+On the Pi Zero, run:
+  sudo bash /path/to/scripts/enable-nextion.sh
+
+Or set in /etc/mmdvmhost manually:
+  [General]        Display=Nextion
+  [Transparent Data] Enable=1, SendFrameType=1
+  [Nextion]        Display=1, ScreenLayout=0, Port=/dev/ttyUSB0
+
+  NOTE: Pi-Star "Modem" port uses transparent data through the hat — same UART as
+  the MMDVM board. enable-nextion.sh sets Transparent Data for hat routing.
+
+  ScreenLayout=0  → G4KLX layout (required for this HMI)
+
+Restart: sudo systemctl restart mmdvmhost
+
+VERIFY
+------
+  journalctl -u mmdvmhost -f
+  Look for Nextion / display open messages (not "Cannot open the port").
+
+  Display should show:
+    Idle: WY6Y/1234567, clock, IP, 438.8 MHz
+    RX:   YSF page with N/R callsign, DG-ID, RSSI/BER on local TX
+
+TROUBLESHOOTING
+---------------
+- Garbled screen: swap TX/RX on display harness.
+- Blank screen: recheck 5V/GND; re-flash .tft.
+- No updates: MMDVMHost may need rebuild with Display-Driver (Nextion support).
+  Check: strings /usr/local/bin/MMDVMHost | grep -i nextion
+- Wrong layout: ScreenLayout must be 0 for this HMI.
+
+COLOR REFERENCE (WY6Y-Weather)
+------------------------------
+  Background:  #050505
+  Neon cyan:   #00F0FF
+  Neon green:  #00FF9F
+  Neon yellow: #FFFF00
+  Neon magenta:#FF00AA

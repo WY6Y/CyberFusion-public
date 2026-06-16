@@ -1,0 +1,23 @@
+On Linux, to run MMDVM-Host as a daemon, set "Daemon=1" in the ini file. 
+
+It is possible to run the MMDVM-Host via systemd, if this method is used, then
+the following does not apply, and Daemon should be set to 0 in the ini file.
+
+When Daemon is set, MMDVM-Host will attempt to drop privileges to user "mmdvm" and 
+group "mmdvm". If this user and group do not exist on your system, an error 
+will occur and MMDVM-Host will not start. 
+
+To add these users, please do the following from the Linux command line:
+
+groupadd mmdvm
+useradd mmdvm -g mmdvm -s /sbin/nologin
+usermod mmdvm -G dialout
+
+Note, without the last line, MMDVM-Host will not be able to open the modem. 
+
+Also note, when running as a daemon, STDIN, STDOUT and STDERR are closed, so 
+you must use MQTT to capture logging. The paths to the other files (DMRIds,
+RSSI, etc) should be absolute and not relative as the current working directory
+is set to "/" when the program is being run as a daemon.
+
+Simon - G7RZU

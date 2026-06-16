@@ -1,0 +1,14 @@
+[Unit]
+Description=CyberFusion Dashboard (stdlib)
+After=network.target
+[Service]
+Type=simple
+User=wy6y
+WorkingDirectory=/opt/cyberfusion-dashboard
+ExecStart=/usr/bin/python3 /opt/cyberfusion-dashboard/cyberfusion-dash.py
+# Bind port 80 without root; do not set CapabilityBoundingSet or sudo breaks for ysf-link.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
