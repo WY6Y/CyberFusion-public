@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#00f0ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="WY6Y CyberFusion">
-  <title>WY6Y CyberFusion • YSF Hotspot</title>
+  <meta name="apple-mobile-web-app-title" content="CyberFusion Hotspot">
+  <title>CyberFusion • YSF Hotspot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
@@ -425,11 +425,11 @@
   <div class="wrap">
     <header class="header">
       <div>
-        <div class="cyber-title neon-cyan">WY6Y CYBERFUSION</div>
+        <div class="cyber-title neon-cyan" id="site-title">CYBERFUSION HOTSPOT</div>
         <div class="header-sub">YSF HOTSPOT UPLINK • PI ZERO 2 W</div>
       </div>
       <div>
-        <div class="badge">438.800</div>
+        <div class="badge" id="site-freq">446.000</div>
         <div class="uplink-line">
           <span class="status-dot"></span>
           <span id="link-status" class="neon-green">STANDBY</span>
@@ -442,7 +442,7 @@
       <div class="hud-label">Linked reflector</div>
       <div id="room" class="room-value">UNLINKED</div>
       <div id="detail" class="detail-line"></div>
-      <div id="freq" class="freq-line">Radio: 438.800 MHz · DN mode · Wires-X from FT-70D</div>
+      <div id="freq" class="freq-line">Radio: set frequency in mmdvmhost.ini</div>
     </section>
 
     <section class="hud-border">
@@ -549,7 +549,7 @@ async function loadWifi() {
   const st = await fetch('/api/wifi/status').then(r=>r.json()).catch(()=>({}));
   const el = $('#wifi-status');
   if (st.mode === 'ap') {
-    el.innerHTML = '<span class="neon-yellow">HOTSPOT MODE</span> · join <b>WY6Y-Hotspot</b> · dashboard <b>' + (st.ap_ip || '192.168.50.1') + '</b>';
+    el.innerHTML = '<span class="neon-yellow">HOTSPOT MODE</span> · join <b>' + (st.ap_ssid || 'CyberFusion-Hotspot') + '</b> · dashboard <b>' + (st.ap_ip || '192.168.50.1') + '</b>';
   } else if (st.ssid) {
     el.innerHTML = '<span class="neon-green">CONNECTED</span> · ' + st.ssid + ' · ' + (st.ip || 'no ip');
   } else {
@@ -691,8 +691,20 @@ async function loadTraffic() {
   });
 }
 
+async function loadSite() {
+  const s = await fetch('/api/site').then(r=>r.json()).catch(()=>({}));
+  if (s.title) {
+    $('#site-title').textContent = s.title;
+    document.title = s.title + ' • YSF Hotspot';
+  }
+  if (s.freq_mhz) {
+    $('#site-freq').textContent = s.freq_mhz;
+    $('#freq').textContent = 'Radio: ' + s.freq_mhz + ' MHz · set DN mode on your handheld';
+  }
+}
+
 setInterval(() => { refresh(); loadTraffic(); loadLog(); loadWifi(); }, 5000);
-refresh(); loadTraffic(); loadLog(); loadWifi();
+loadSite(); refresh(); loadTraffic(); loadLog(); loadWifi();
 </script>
 </body>
 </html>

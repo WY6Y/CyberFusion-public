@@ -3,12 +3,12 @@
 # Fixes common post-reboot issues: WiFi stuck in AP, services crash-looping.
 set -euo pipefail
 
-echo "=== WY6Y CyberFusion recovery ==="
+echo "=== CyberFusion recovery ==="
 
 # 1. Try to restore normal WiFi client (gets Tailscale back)
-if command -v wy6y-wifi-fallback >/dev/null; then
+if command -v cyberfusion-wifi-fallback >/dev/null; then
   echo "Forcing WiFi client mode..."
-  sudo wy6y-wifi-fallback force-client || true
+  sudo cyberfusion-wifi-fallback force-client || true
   sleep 5
 fi
 
@@ -45,4 +45,4 @@ hostname -I
 tailscale ip -4 2>/dev/null || echo "(tailscale not up yet — wait 30s)"
 echo ""
 echo "Dashboard: http://$(hostname -I | awk '{print $1}')/"
-echo "If only AP: connect phone to WY6Y-Hotspot → http://192.168.50.1/"
+echo "If only AP: connect phone to CyberFusion-Hotspot → http://192.168.50.1/"

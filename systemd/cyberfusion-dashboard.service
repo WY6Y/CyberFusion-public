@@ -3,10 +3,12 @@ Description=CyberFusion Dashboard (stdlib)
 After=network.target
 [Service]
 Type=simple
-User=wy6y
+User=pi
 WorkingDirectory=/opt/cyberfusion-dashboard
+Environment=LOCAL_CALLSIGN=CHANGEME
+Environment=SITE_TITLE=CYBERFUSION HOTSPOT
+Environment=HOTSPOT_FREQ_MHZ=446.000
 ExecStart=/usr/bin/python3 /opt/cyberfusion-dashboard/cyberfusion-dash.py
-# Bind port 80 without root; do not set CapabilityBoundingSet or sudo breaks for ysf-link.
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 Restart=always
 RestartSec=5

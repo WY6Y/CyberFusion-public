@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-WY6Y CyberFusion Dashboard - pure stdlib (no Flask, no pip, no venv)
-Lightweight for Pi Zero. Serves HTML/JS/CSS + simple API endpoints
-that call the ysf-* sudo scripts.
+CyberFusion Dashboard — pure stdlib (no Flask, no pip, no venv).
+Lightweight for Pi Zero. Serves HTML/JS/CSS + API endpoints for YSF and WiFi.
 Run as: python3 cyberfusion-dash.py
+Set LOCAL_CALLSIGN, SITE_TITLE, HOTSPOT_FREQ_MHZ via environment (see configs/README.md).
 """
 import http.server
 import socketserver
@@ -19,7 +19,9 @@ from datetime import datetime, timezone
 PORT = int(os.environ.get("PORT", "80"))
 DASH_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(DASH_DIR, "static")
-LOCAL_CALLSIGN = os.environ.get("LOCAL_CALLSIGN", "WY6Y")
+LOCAL_CALLSIGN = os.environ.get("LOCAL_CALLSIGN", "CHANGEME")
+SITE_TITLE = os.environ.get("SITE_TITLE", "CYBERFUSION HOTSPOT")
+HOTSPOT_FREQ_MHZ = os.environ.get("HOTSPOT_FREQ_MHZ", "446.000")
 
 # Simple in-memory last link
 LAST = ""
@@ -211,9 +213,19 @@ def nmcli(*args, timeout=30):
     return run("/usr/bin/nmcli", list(args), timeout=timeout)
 
 
+def _ap_ssid_from_hostapd():
+    try:
+        with open("/etc/hostapd/hostapd.conf", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("ssid="):
+                    return line.strip().split("=", 1)[1]
+    except OSError:
+        pass
+    return "CyberFusion-Hotspot"
+
+
 def wifi_fallback(*args, timeout=45):
-    # sudoers only allows the system-installed path
-    return run("/usr/local/bin/wy6y-wifi-fallback", list(args), timeout=timeout)
+    return run("/usr/local/bin/cyberfusion-wifi-fallback", list(args), timeout=timeout)
 
 
 def _wifi_active_name():
@@ -227,6 +239,7 @@ def _is_ap_mode():
 
 
 def wifi_status_data():
+    ap_ssid = _ap_ssid_from_hostapd()
     active = _wifi_active_name()
     if _is_ap_mode():
         return {
@@ -235,7 +248,7 @@ def wifi_status_data():
             "ssid": "",
             "ip": "192.168.50.1",
             "active": "",
-            "ap_ssid": "WY6Y-Hotspot",
+            "ap_ssid": ap_ssid,
             "ap_ip": "192.168.50.1",
         }
     ok, conn = nmcli("-t", "-g", "GENERAL.CONNECTION", "device", "show", "wlan0", timeout=10)
@@ -257,8 +270,16 @@ def wifi_status_data():
         "ssid": ssid_val,
         "ip": ip_val,
         "active": active,
-        "ap_ssid": "WY6Y-Hotspot",
+        "ap_ssid": ap_ssid,
         "ap_ip": "192.168.50.1",
+    }
+
+
+def site_config():
+    return {
+        "title": SITE_TITLE,
+        "callsign": LOCAL_CALLSIGN,
+        "freq_mhz": HOTSPOT_FREQ_MHZ,
     }
 
 
@@ -403,6 +424,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 with open(full, "rb") as f: self.wfile.write(f.read())
                 return
 
+        if self.path == "/api/site":
+            self._json(site_config())
+            return
+
         if self.path == "/api/status":
             local_status = os.path.expanduser("~/ysf-status-local")
             status_cmd = local_status if os.path.isfile(local_status) else os.environ.get("YSF_STATUS", "/usr/local/bin/ysf-status")
@@ -414,6 +439,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     data = {"error": "parse"}
             else:
                 data = {"error": out, "gateway_active": False}
+            data["site"] = site_config()
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()

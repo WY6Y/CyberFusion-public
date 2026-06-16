@@ -32,7 +32,7 @@ apply_once() {
   local PI="${PI_USER}@${host}"
   log "Connected via $host"
 
-  scp "${SSH_OPTS[@]}" "$ROOT/scripts/wifi-fallback-light.sh" "$PI:/tmp/wy6y-wifi-fallback" || return 1
+  scp "${SSH_OPTS[@]}" "$ROOT/scripts/wifi-fallback-light.sh" "$PI:/tmp/cyberfusion-wifi-fallback" || return 1
   [[ -f "$KEYFILE" ]] && scp "${SSH_OPTS[@]}" "$KEYFILE" "$PI:/tmp/wifi-client.nmconnection" || true
 
   ssh "${SSH_OPTS[@]}" "$PI" bash -s <<REMOTE
@@ -42,15 +42,15 @@ WIFI_SSID='$WIFI_SSID'
 WIFI_PSK='$WIFI_PSK'
 
 install_script() {
-  if sudo -n cp /tmp/wy6y-wifi-fallback /usr/local/bin/wy6y-wifi-fallback 2>/dev/null; then
-    sudo -n chmod +x /usr/local/bin/wy6y-wifi-fallback
+  if sudo -n cp /tmp/cyberfusion-wifi-fallback /usr/local/bin/cyberfusion-wifi-fallback 2>/dev/null; then
+    sudo -n chmod +x /usr/local/bin/cyberfusion-wifi-fallback
     return 0
   fi
-  cp /tmp/wy6y-wifi-fallback /usr/local/bin/wy6y-wifi-fallback 2>/dev/null && chmod +x /usr/local/bin/wy6y-wifi-fallback
+  cp /tmp/cyberfusion-wifi-fallback /usr/local/bin/cyberfusion-wifi-fallback 2>/dev/null && chmod +x /usr/local/bin/cyberfusion-wifi-fallback
 }
 
 add_via_fallback() {
-  sudo -n /usr/local/bin/wy6y-wifi-fallback add-network "\$WIFI_SSID" "\$WIFI_PSK" 100
+  sudo -n /usr/local/bin/cyberfusion-wifi-fallback add-network "\$WIFI_SSID" "\$WIFI_PSK" 100
 }
 
 nmcli_add() {
@@ -79,12 +79,12 @@ add_via_keyfile() {
 
 install_script || true
 
-if sudo -n cp /tmp/wy6y-wifi-fallback /usr/local/bin/wy6y-wifi-fallback 2>/dev/null; then
-  sudo -n chmod +x /usr/local/bin/wy6y-wifi-fallback
+if sudo -n cp /tmp/cyberfusion-wifi-fallback /usr/local/bin/cyberfusion-wifi-fallback 2>/dev/null; then
+  sudo -n chmod +x /usr/local/bin/cyberfusion-wifi-fallback
 fi
 
 if add_via_fallback 2>/dev/null; then
-  echo "OK: wy6y-wifi-fallback add-network"
+  echo "OK: cyberfusion-wifi-fallback add-network"
 elif add_via_nmcli 2>/dev/null; then
   echo "OK: sudo nmcli add"
 elif add_via_nmcli_user 2>/dev/null; then
@@ -93,7 +93,7 @@ elif add_via_keyfile 2>/dev/null; then
   echo "OK: keyfile import"
 else
   echo "FAIL: run on the Pi:"
-  echo "  sudo wy6y-wifi-fallback add-network \$WIFI_SSID <password> 100"
+  echo "  sudo cyberfusion-wifi-fallback add-network \$WIFI_SSID <password> 100"
   exit 2
 fi
 

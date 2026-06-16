@@ -1,4 +1,4 @@
-# WY6Y CyberFusion — Pi Zero 2W YSF Hotspot (v1.5.2 board)
+# CyberFusion — Pi Zero 2W YSF Hotspot (v1.5.2 board)
 ## Ultra Light, Step-by-Step Install from Fresh 64-bit Raspberry Pi OS Lite
 
 **Goal**: Clean, stable system on **Pi Zero 2W** (or compatible 64-bit capable Zero) with MMDVM Hotspot Board v1.5.2.
@@ -21,7 +21,7 @@
 
 ## Phase 0: Prepare on your Pi 5 (Build Host) — DO THIS FIRST
 
-You are reading this on the Pi 5. Everything here stays in `/home/wy6y/cyberfusion-pi-zero/`. Nothing is installed or enabled on the Pi 5.
+You are reading this on the Pi 5. Everything here stays in `~/CyberFusion-public/`. Nothing is installed or enabled on the Pi 5.
 
 1. Make sure you have the latest files in this directory (the one containing `docs/`, `scripts/`, `configs/`, `binaries/` etc.).
 2. (If not already) Pre-build or stage the two binaries (the project dir has a helper).
@@ -29,7 +29,7 @@ You are reading this on the Pi 5. Everything here stays in `/home/wy6y/cyberfusi
 Run on Pi 5 (safe):
 
 ```bash
-cd ~/cyberfusion-pi-zero
+cd ~/CyberFusion-public
 # The binaries/ folder should contain the final MMDVMHost and YSFGateway
 # If empty, run the provided build helper (it only touches files inside this dir)
 bash scripts/prepare-binaries.sh   # or follow the build notes below
@@ -44,15 +44,15 @@ If `binaries/` has the two executables, great — you will copy them later.
 
 1. Download **Raspberry Pi OS Lite 64-bit** (Bookworm recommended) using Raspberry Pi Imager on any computer.
 2. In Imager advanced options:
-   - Set hostname: `wy6y-cyberfusion`
+   - Set hostname: `cyberfusion-hotspot`
    - Enable SSH
-   - Set username: `wy6y`, choose a good password
+   - Set username: `pi`, choose a good password
    - (Optional) Pre-configure your home WiFi SSID/password so first boot has network.
 3. Write to SD card (at least 8 GB, preferably fast).
 4. Insert into Pi Zero + MMDVM board + antenna.
 5. Power on (use good 5V/2.5A+ supply — Pi Zero + board + Nextion needs it).
-6. Find the IP (check your router or use `ping wy6y-cyberfusion.local` from another machine).
-7. SSH in as `wy6y`.
+6. Find the IP (check your router or use `ping cyberfusion-hotspot.local` from another machine).
+7. SSH in as `pi`.
 
 On the Pi Zero console/SSH, run the steps below **one by one**. After each, read the output and confirm "OK" before the next.
 
@@ -77,8 +77,8 @@ sudo apt update
 **Step 2.3** — Set/confirm hostname again if needed (fast)
 
 ```bash
-sudo hostnamectl set-hostname wy6y-cyberfusion
-echo "127.0.1.1 wy6y-cyberfusion" | sudo tee -a /etc/hosts
+sudo hostnamectl set-hostname cyberfusion-hotspot
+echo "127.0.1.1 cyberfusion-hotspot" | sudo tee -a /etc/hosts
 ```
 
 **Step 2.4** — Enable hardware UART, disable serial console (critical for MMDVM board)
@@ -164,7 +164,7 @@ sudo apt clean
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --hostname=wy6y-cyberfusion --accept-routes
+sudo tailscale up --hostname=cyberfusion-hotspot --accept-routes
 ```
 
 (If no internet yet, do this step later when you have WiFi or use phone tether.)
@@ -188,10 +188,10 @@ Two easy ways:
 On your Pi 5:
 
 ```bash
-cd ~/cyberfusion-pi-zero
-scp -r configs scripts dashboard systemd docs wy6y@<pi-zero-ip>:~/
+cd ~/CyberFusion-public
+scp -r configs scripts dashboard systemd docs pi@<pi-zero-ip>:~/
 # Also the pre-built binaries if you have them
-scp binaries/MMDVMHost binaries/YSFGateway wy6y@<pi-zero-ip>:~/binaries/ 2>/dev/null || echo "Will build on target or copy later"
+scp binaries/MMDVMHost binaries/YSFGateway pi@<pi-zero-ip>:~/binaries/ 2>/dev/null || echo "Will build on target or copy later"
 ```
 
 **B. Mount SD card on Pi 5**
@@ -199,7 +199,7 @@ scp binaries/MMDVMHost binaries/YSFGateway wy6y@<pi-zero-ip>:~/binaries/ 2>/dev/
 - Power off Pi Zero, remove SD.
 - Insert SD into Pi 5 (use reader).
 - Mount the root partition (usually `/dev/mmcblk0p2` or check `lsblk`).
-- Copy the directories into the `/home/wy6y/` of the mounted rootfs.
+- Copy the directories into the `/home/pi/` of the mounted rootfs (or your chosen username).
 - Unmount, put SD back in Zero, boot.
 
 ---
@@ -230,7 +230,7 @@ See `scripts/compile-on-zero.sh` (copy it over and run it after the build-deps s
 # Create log dirs
 sudo mkdir -p /var/log/mmdvm /var/log/ysfgateway
 sudo groupadd -f mmdvm
-sudo usermod -aG mmdvm,dialout wy6y
+sudo usermod -aG mmdvm,dialout pi
 
 # Copy configs (edit callsign + frequencies + port first if needed)
 sudo cp ~/configs/mmdvmhost.ini /etc/mmdvmhost
@@ -243,7 +243,7 @@ sudo cp ~/scripts/ysf-status /usr/local/bin/
 sudo chmod +x /usr/local/bin/ysf-*
 
 # Sudoers for the dashboard user to call the controls without password
-echo 'wy6y ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway' | sudo tee /etc/sudoers.d/cyberfusion
+echo 'pi ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway' | sudo tee /etc/sudoers.d/cyberfusion
 sudo chmod 440 /etc/sudoers.d/cyberfusion
 ```
 
@@ -270,8 +270,8 @@ sudo wget -qO /usr/local/etc/YSFHosts.txt https://dvref.com/YSFHosts.txt
 The script is intentionally very simple to avoid previous freeze issues.
 
 ```bash
-sudo cp ~/scripts/wifi-fallback-light.sh /usr/local/bin/wy6y-wifi-fallback
-sudo chmod +x /usr/local/bin/wy6y-wifi-fallback
+sudo cp ~/scripts/wifi-fallback-light.sh /usr/local/bin/cyberfusion-wifi-fallback
+sudo chmod +x /usr/local/bin/cyberfusion-wifi-fallback
 
 sudo cp ~/systemd/cyberfusion-wifi-fallback.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -286,7 +286,7 @@ sudo mkdir -p /etc/dnsmasq.d
 sudo cp ~/configs/dnsmasq.conf /etc/dnsmasq.d/cyberfusion.conf
 ```
 
-**Note on SSID**: Default `WY6Y-Hotspot`. Edit `/etc/hostapd/hostapd.conf` if you want to change password or make it open.
+**Note on SSID**: Default `CyberFusion-Hotspot`. Edit `/etc/hostapd/hostapd.conf` if you want to change password or make it open.
 
 Reboot after this or start the service manually later.
 
@@ -300,7 +300,7 @@ No pip, no venv, no Flask.
 sudo mkdir -p /opt/cyberfusion-dashboard/static
 sudo cp ~/dashboard/cyberfusion-dash.py /opt/cyberfusion-dashboard/
 sudo cp -r ~/dashboard/static/* /opt/cyberfusion-dashboard/static/
-sudo chown -R wy6y:wy6y /opt/cyberfusion-dashboard
+sudo chown -R pi:pi /opt/cyberfusion-dashboard
 ```
 
 Install the service:
@@ -351,8 +351,8 @@ sudo reboot
 
 After reboot:
 
-- `ping wy6y-cyberfusion.local` from phone/laptop
-- Open http://wy6y-cyberfusion.local (or the IP, or 192.168.50.1 when in AP mode)
+- `ping cyberfusion-hotspot.local` from phone/laptop
+- Open http://cyberfusion-hotspot.local (or the IP, or 192.168.50.1 when in AP mode)
 - Use the big neon buttons.
 - Check Nextion (if connected) shows status.
 - Use `tailscale` for remote when away.
@@ -380,7 +380,7 @@ Test the port with `screen /dev/ttyAMA0 115200` (should see garbage or nothing u
 
 - No RF: Check `journalctl -u mmdvmhost`, modem port setting, levels.
 - Can't change rooms from dashboard: Check the ysf-* scripts are in PATH and sudoers is correct. Test manually: `sudo ysf-link YSF23453`
-- AP not coming up: Run `/usr/local/bin/wy6y-wifi-fallback force-ap` by hand and watch output.
+- AP not coming up: Run `/usr/local/bin/cyberfusion-wifi-fallback force-ap` by hand and watch output.
 - Dashboard not loading: `sudo systemctl status cyberfusion-dashboard`, check port 80 not conflicted.
 - Memory pressure on Zero: Only run one service check at a time. Use `tmux`.
 
@@ -404,4 +404,4 @@ Test the port with `screen /dev/ttyAMA0 115200` (should see garbage or nothing u
 
 Enjoy the truck. Clean. Stable. Neon.
 
-73 de WY6Y
+73

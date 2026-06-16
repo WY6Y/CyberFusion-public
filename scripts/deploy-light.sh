@@ -1,5 +1,5 @@
 #!/bin/bash
-# WY6Y CyberFusion — light phased deploy for Pi Zero (or test host)
+# CyberFusion — light phased deploy for Pi Zero (or test host)
 # Run: bash ~/cyberfusion-pi-zero/scripts/deploy-light.sh
 # Each phase pauses briefly and prints status. Stop on first error.
 set -euo pipefail
@@ -36,7 +36,7 @@ sudo cp "$ROOT/scripts/ysf-link" /usr/local/bin/
 sudo cp "$ROOT/scripts/ysf-unlink" /usr/local/bin/
 sudo cp "$ROOT/scripts/ysf-status" /usr/local/bin/
 sudo chmod +x /usr/local/bin/ysf-link /usr/local/bin/ysf-unlink /usr/local/bin/ysf-status
-echo "$USER ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /usr/local/bin/wy6y-wifi-fallback, /usr/bin/nmcli, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway, /bin/systemctl stop ysfgateway, /bin/systemctl start ysfgateway" | sudo tee /etc/sudoers.d/cyberfusion >/dev/null
+echo "$USER ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /usr/local/bin/cyberfusion-wifi-fallback, /usr/bin/nmcli, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway, /bin/systemctl stop ysfgateway, /bin/systemctl start ysfgateway" | sudo tee /etc/sudoers.d/cyberfusion >/dev/null
 sudo chmod 440 /etc/sudoers.d/cyberfusion
 pause
 
@@ -48,13 +48,13 @@ else
     https://hostfiles.refcheck.radio/YSFHosts.json || \
     echo "WARN: could not fetch YSFHosts"
 fi
-sudo chown wy6y:mmdvm /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
+sudo chown pi:mmdvm /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
 wc -c /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
 pause
 
 echo "=== Phase 4: WiFi fallback ==="
-sudo cp "$ROOT/scripts/wifi-fallback-light.sh" /usr/local/bin/wy6y-wifi-fallback
-sudo chmod +x /usr/local/bin/wy6y-wifi-fallback
+sudo cp "$ROOT/scripts/wifi-fallback-light.sh" /usr/local/bin/cyberfusion-wifi-fallback
+sudo chmod +x /usr/local/bin/cyberfusion-wifi-fallback
 sudo cp "$ROOT/configs/hostapd.conf" /etc/hostapd/hostapd.conf
 sudo mkdir -p /etc/dnsmasq.d
 sudo cp "$ROOT/configs/dnsmasq.conf" /etc/dnsmasq.d/cyberfusion.conf
@@ -90,5 +90,5 @@ pause
 echo "=== Deploy complete ==="
 echo "Dashboard: http://$(hostname -I | awk '{print $1}')/"
 echo "Tailscale:  http://$(tailscale ip -4 2>/dev/null || echo 'n/a')/"
-echo "AP mode:    http://192.168.50.1/  (SSID WY6Y-Hotspot)"
+echo "AP mode:    http://192.168.50.1/  (SSID CyberFusion-Hotspot)"
 echo "Test room:  sudo ysf-link YSF23453"

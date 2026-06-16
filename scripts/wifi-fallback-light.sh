@@ -1,11 +1,17 @@
 #!/bin/bash
 # Ultra-light WiFi client with AP fallback for Pi Zero
-# SSID: WY6Y-Hotspot   (edit /etc/hostapd/hostapd.conf for password)
+# AP SSID/password: edit /etc/hostapd/hostapd.conf
 set -euo pipefail
 
 IFACE="wlan0"
 AP_IP="192.168.50.1"
 WAIT=75
+
+ap_ssid() {
+  local s
+  s=$(grep -E '^ssid=' /etc/hostapd/hostapd.conf 2>/dev/null | head -1 | cut -d= -f2-)
+  echo "${s:-CyberFusion-Hotspot}"
+}
 
 log() { echo "[$(date +%H:%M:%S)] $*" | logger -t wifi-fb; echo "$*"; }
 
@@ -14,7 +20,7 @@ has_ip() { ip -4 addr show "$IFACE" 2>/dev/null | grep -q "inet "; }
 is_up() { iw "$IFACE" link 2>/dev/null | grep -qi "connected" || nmcli -t -f GENERAL.STATE dev show "$IFACE" 2>/dev/null | grep -q "connected"; }
 
 start_ap() {
-  log "No client after ${WAIT}s — starting AP WY6Y-Hotspot"
+  log "No client after ${WAIT}s — starting AP $(ap_ssid)"
   nmcli device set "$IFACE" managed no 2>/dev/null || true
   ip link set "$IFACE" down || true
   ip addr flush dev "$IFACE" || true
@@ -88,8 +94,8 @@ wifi_status() {
     ip="$(ip -4 -o addr show "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)"
     active="$(nmcli -t -g GENERAL.CONNECTION device show "$IFACE" 2>/dev/null || true)"
   fi
-  printf '{"mode":"%s","ssid":"%s","ip":"%s","active":"%s","ap_ssid":"WY6Y-Hotspot","ap_ip":"%s"}\n' \
-    "$mode" "$ssid" "$ip" "$active" "$AP_IP"
+  printf '{"mode":"%s","ssid":"%s","ip":"%s","active":"%s","ap_ssid":"%s","ap_ip":"%s"}\n' \
+    "$mode" "$ssid" "$ip" "$active" "$(ap_ssid)" "$AP_IP"
 }
 
 list_networks() {

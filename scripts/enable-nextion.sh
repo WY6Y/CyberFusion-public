@@ -5,7 +5,7 @@ set -euo pipefail
 CONF=/etc/mmdvmhost
 [[ $EUID -eq 0 ]] || { echo "Run with: sudo bash $0"; exit 1; }
 
-echo "=== Enable WY6Y CyberFusion Nextion ==="
+echo "=== Enable CyberFusion Nextion ==="
 
 # Hat-routed display: transparent serial through MMDVM firmware (same as Pi-Star "Modem").
 grep -q '^\[Transparent Data\]' "$CONF" || echo -e "\n[Transparent Data]" >> "$CONF"

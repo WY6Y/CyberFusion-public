@@ -12,11 +12,13 @@ ROOT="${1:?Usage: sudo $0 /path/to/mounted/root}"
 BOOT="${ROOT}/boot/firmware"
 [[ -d "$BOOT" ]] || BOOT="${ROOT}/boot"
 
+HOTSPOT_USER="${HOTSPOT_USER:-pi}"
 AP_PASS="${AP_PASS:-CHANGE_ME_HOTSPOT_PASSWORD}"
+AP_SSID="${AP_SSID:-CyberFusion-Hotspot}"
 TRUCK_SSID="${TRUCK_SSID:-YOUR_WIFI_SSID}"
 TRUCK_PSK="${TRUCK_PSK:-YOUR_WIFI_PASSWORD}"
 
-echo "=== WY6Y CyberFusion SD card fix ==="
+echo "=== CyberFusion SD card fix ==="
 echo "Root: $ROOT"
 echo "Boot: $BOOT"
 echo ""
@@ -50,7 +52,7 @@ if [[ -f "$PKG/configs/hostapd.conf" ]]; then
 else
   cat >"$ROOT/etc/hostapd/hostapd.conf" <<EOF
 interface=wlan0
-ssid=WY6Y-Hotspot
+ssid=CyberFusion-Hotspot
 hw_mode=g
 channel=6
 wpa=2
@@ -62,8 +64,8 @@ EOF
 fi
 # Force password in case file existed with wrong value
 sed -i "s/^wpa_passphrase=.*/wpa_passphrase=${AP_PASS}/" "$ROOT/etc/hostapd/hostapd.conf"
-sed -i 's/^ssid=.*/ssid=WY6Y-Hotspot/' "$ROOT/etc/hostapd/hostapd.conf"
-echo "[ok] hostapd: WY6Y-Hotspot password set to ${AP_PASS}"
+sed -i "s/^ssid=.*/ssid=${AP_SSID}/" "$ROOT/etc/hostapd/hostapd.conf"
+echo "[ok] hostapd: ${AP_SSID} password set"
 
 # --- dnsmasq for AP mode ---
 mkdir -p "$ROOT/etc/dnsmasq.d"
@@ -95,24 +97,7 @@ nm_set_key() {
 if [[ -f "$PKG/configs/wifi-client.nmconnection" ]]; then
   cp "$PKG/configs/wifi-client.nmconnection" "$NM_DIR/wifi-client.nmconnection"
   nm_fix_perms "$NM_DIR/wifi-client.nmconnection"
-  echo "[ok] truck WiFi: ${TRUCK_SSID} (priority 100, root:root 600)"
-fi
-
-# Keep / repair home WiFi — never delete existing profiles
-queens_fixed=0
-for f in "$NM_DIR"/*; do
-  [[ -f "$f" ]] || continue
-  base="$(basename "$f")"
-  if grep -qi 'queens' "$f" || grep -qi 'queens' "$base"; then
-    nm_set_key "$f" "autoconnect" "true"
-    nm_set_key "$f" "autoconnect-priority" "90"
-    nm_fix_perms "$f"
-    echo "[ok] home WiFi repaired: $base (autoconnect, priority 90)"
-    queens_fixed=1
-  fi
-done
-if [[ "$queens_fixed" -eq 0 ]]; then
-  echo "[warn] no home WiFi profile found on card — add one with wy6y-wifi-fallback or nmcli"
+  echo "[ok] client WiFi profile installed (root:root 600)"
 fi
 
 # Fix permissions on ALL connection files
@@ -123,9 +108,9 @@ done
 # --- wifi-fallback script with add-network support ---
 mkdir -p "$ROOT/usr/local/bin"
 if [[ -f "$PKG/scripts/wifi-fallback-light.sh" ]]; then
-  cp "$PKG/scripts/wifi-fallback-light.sh" "$ROOT/usr/local/bin/wy6y-wifi-fallback"
-  chmod 755 "$ROOT/usr/local/bin/wy6y-wifi-fallback"
-  echo "[ok] wy6y-wifi-fallback script updated"
+  cp "$PKG/scripts/wifi-fallback-light.sh" "$ROOT/usr/local/bin/cyberfusion-wifi-fallback"
+  chmod 755 "$ROOT/usr/local/bin/cyberfusion-wifi-fallback"
+  echo "[ok] cyberfusion-wifi-fallback script updated"
 fi
 
 # --- wifi-fallback: keep as last-resort AP (75s after boot if no WiFi) ---
@@ -141,8 +126,8 @@ fi
 
 # --- sudoers for dashboard + wifi tools ---
 mkdir -p "$ROOT/etc/sudoers.d"
-cat >"$ROOT/etc/sudoers.d/cyberfusion" <<'SUDOERS'
-wy6y ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /usr/local/bin/wy6y-wifi-fallback, /usr/bin/nmcli, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway, /bin/systemctl stop ysfgateway, /bin/systemctl start ysfgateway
+cat >"$ROOT/etc/sudoers.d/cyberfusion" <<SUDOERS
+${HOTSPOT_USER} ALL=(ALL) NOPASSWD: /usr/local/bin/ysf-link, /usr/local/bin/ysf-unlink, /usr/local/bin/ysf-status, /usr/local/bin/cyberfusion-wifi-fallback, /usr/bin/nmcli, /bin/systemctl restart mmdvmhost, /bin/systemctl restart ysfgateway, /bin/systemctl stop ysfgateway, /bin/systemctl start ysfgateway
 SUDOERS
 chmod 440 "$ROOT/etc/sudoers.d/cyberfusion"
 echo "[ok] sudoers updated (passwordless wifi + ysf controls)"
@@ -159,5 +144,5 @@ echo "=== Done ==="
 echo "1. Safely unmount SD card"
 echo "2. Put it back in Pi Zero and power on"
 echo "3. Wait 90s — joins ${TRUCK_SSID} or your saved home WiFi if in range"
-echo "4. If no WiFi: hotspot WY6Y-Hotspot / (password you set) → ssh pi@192.168.50.1"
+echo "4. If no WiFi: hotspot CyberFusion-Hotspot / (password you set) → ssh pi@192.168.50.1"
 echo "5. Once online: ssh pi@<pi-ip> or use Tailscale hostname"

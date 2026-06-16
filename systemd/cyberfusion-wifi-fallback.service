@@ -3,7 +3,7 @@ Description=Light WiFi AP fallback monitor
 After=network-online.target
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/wy6y-wifi-fallback
+ExecStart=/usr/local/bin/cyberfusion-wifi-fallback
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target

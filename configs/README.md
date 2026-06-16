@@ -1,30 +1,40 @@
-# Config templates
+# Customize before deploy
 
-Copy and edit these before deploying. **Do not commit real passwords to a public repo.**
+Edit these templates for **your** callsign, frequency, location, and WiFi. Do not commit real passwords to a public fork.
 
-## Hotspot (fallback AP)
+## Quick checklist
 
-Edit `hostapd.conf`:
+1. Copy `customize.example.env` → `customize.env` (local only; gitignored).
+2. Edit `mmdvmhost.ini` and `ysfgateway.ini` — `Callsign`, frequencies, lat/long, `Location`.
+3. Edit `hostapd.conf` — `ssid` and `wpa_passphrase`.
+4. Optional client WiFi: `cp wifi-client.nmconnection.example wifi-client.nmconnection` and edit SSID/psk.
 
-```bash
-wpa_passphrase=YOUR_HOTSPOT_PASSWORD
+## Files
+
+| File | What to change |
+|------|----------------|
+| `mmdvmhost.ini` | Callsign, Id (DMR ID), RX/TX MHz, modem levels, UART port |
+| `ysfgateway.ini` | Callsign, frequencies, `Startup` reflector (default `ZZ Parrot` for echo test) |
+| `hostapd.conf` | AP SSID (`CyberFusion-Hotspot` or your name), hotspot password |
+| `wifi-client.nmconnection.example` | Template for home/mobile WiFi |
+
+## Dashboard / systemd
+
+Set environment on the Pi (or in `systemd/cyberfusion-dashboard.service`):
+
+```ini
+Environment=LOCAL_CALLSIGN=YOURCALL
+Environment=SITE_TITLE=YOUR HOTSPOT NAME
+Environment=HOTSPOT_FREQ_MHZ=446.000
 ```
 
-## Client WiFi (home / mobile)
+## Linux user
+
+Default scripts assume user **`pi`**. If you use another account, set `HOTSPOT_USER` in `customize.env` and update `User=` in `systemd/*.service` before `phase-06-systemd.sh`.
+
+## Parrot test
 
 ```bash
-cp wifi-client.nmconnection.example wifi-client.nmconnection
-# edit SSID and psk= lines — wifi-client.nmconnection is gitignored in the private backup workflow
+sudo ysf-link "ZZ Parrot"
+# PTT 3+ seconds on your frequency, wait ~3s for echo
 ```
-
-Or use the dashboard / `wy6y-wifi-fallback add-network SSID PASSWORD priority`.
-
-## Radio
-
-Edit `mmdvmhost.ini` and `ysfgateway.ini`:
-
-- `Callsign=` your callsign
-- `RXFrequency` / `TXFrequency` your simplex or repeater pair
-- `Latitude` / `Longitude` / `Location` as you prefer
-
-Defaults use **WY6Y** and **438.800 MHz** as an example simplex setup.

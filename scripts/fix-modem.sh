@@ -52,5 +52,5 @@ if [[ -x /usr/local/bin/ysf-link ]]; then
 fi
 
 echo ""
-echo "PTT on 438.800 MHz for 3+ seconds, wait for echo."
+echo "PTT on your simplex frequency for 3+ seconds, wait for echo."
 echo "Reboot once when convenient so cmdline.txt change sticks cleanly."

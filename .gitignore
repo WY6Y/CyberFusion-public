@@ -18,6 +18,7 @@ sources-for-zero.tar.gz
 
 # Local secrets (use .example templates in configs/)
 configs/wifi-client.nmconnection
+configs/customize.env
 configs/*.local
 
 # Python cache

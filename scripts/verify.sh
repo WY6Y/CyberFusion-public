@@ -7,7 +7,7 @@ pass() { echo "  OK   $1"; ok=$((ok+1)); }
 warn() { echo "  WARN $1"; warn=$((warn+1)); }
 fail() { echo "  FAIL $1"; fail=$((fail+1)); }
 
-echo "=== WY6Y CyberFusion verify ==="
+echo "=== CyberFusion verify ==="
 
 [[ -x /usr/local/bin/MMDVMHost ]] && pass "MMDVMHost binary" || fail "MMDVMHost binary"
 [[ -x /usr/local/bin/YSFGateway ]] && pass "YSFGateway binary" || fail "YSFGateway binary"

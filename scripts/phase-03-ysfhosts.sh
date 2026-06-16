@@ -8,6 +8,6 @@ else
   sudo curl -fsSL -A "YSFGateway - G4KLX" -o /usr/local/etc/YSFHosts-min.json \
     https://hostfiles.refcheck.radio/YSFHosts.json || true
 fi
-sudo chown wy6y:mmdvm /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
+sudo chown pi:mmdvm /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
 wc -c /usr/local/etc/YSFHosts-min.json 2>/dev/null || true
 echo "Phase 3 done."

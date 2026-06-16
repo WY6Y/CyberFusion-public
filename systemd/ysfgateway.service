@@ -3,7 +3,7 @@ Description=YSFGateway
 After=network.target mmdvmhost.service ysfparrot.service
 [Service]
 Type=simple
-User=wy6y
+User=pi
 Group=mmdvm
 ExecStart=/usr/local/bin/YSFGateway /etc/ysfgateway
 Restart=on-failure

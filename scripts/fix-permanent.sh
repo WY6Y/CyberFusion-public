@@ -7,9 +7,9 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "=== Permanent CyberFusion fix ==="
 
 # Minimal YSF hosts (4 rooms — Pi Zero cannot parse 888KB file)
-# YSFGateway opens Hosts with fstream (read+write); wy6y must own the file.
+# YSFGateway opens Hosts with fstream (read+write); pi user must own the file.
 cp "$DIR/YSFHosts-min.json" /usr/local/etc/YSFHosts-min.json
-chown wy6y:mmdvm /usr/local/etc/YSFHosts-min.json
+chown pi:mmdvm /usr/local/etc/YSFHosts-min.json
 chmod 644 /usr/local/etc/YSFHosts-min.json
 cp "$DIR/ysfgateway.ini" /etc/ysfgateway
 cp "$DIR/mmdvmhost.ini" /etc/mmdvmhost 2>/dev/null || true
@@ -23,12 +23,12 @@ cp "$DIR/ysf-link" /usr/local/bin/ysf-link
 chmod +x /usr/local/bin/ysf-{link,unlink,status}
 cp "$DIR/cyberfusion-dash.py" /opt/cyberfusion-dashboard/
 cp "$DIR/index.html" /opt/cyberfusion-dashboard/static/ 2>/dev/null || true
-chown wy6y:wy6y /opt/cyberfusion-dashboard/cyberfusion-dash.py
+chown pi:pi /opt/cyberfusion-dashboard/cyberfusion-dash.py
 cp "$DIR/cyberfusion-dashboard.service" /etc/systemd/system/ 2>/dev/null || true
 
 # Stop manual YSF workaround, use systemd
 pkill -x YSFGateway 2>/dev/null || true
-crontab -u wy6y -l 2>/dev/null | grep -v ysfgateway-fixed | crontab -u wy6y - || true
+crontab -u pi -l 2>/dev/null | grep -v ysfgateway-fixed | crontab -u pi - || true
 
 [[ -x "$DIR/YSFParrot" ]] && cp "$DIR/YSFParrot" /usr/local/bin/YSFParrot && chmod +x /usr/local/bin/YSFParrot
 [[ -f "$DIR/ysfparrot.service" ]] && cp "$DIR/ysfparrot.service" /etc/systemd/system/

@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "Installing minimal YSFHosts (4 rooms)..."
 sudo cp "$ROOT/configs/YSFHosts-min.json" /usr/local/etc/YSFHosts-min.json
-sudo chown wy6y:mmdvm /usr/local/etc/YSFHosts-min.json
+sudo chown pi:mmdvm /usr/local/etc/YSFHosts-min.json
 sudo cp "$ROOT/configs/ysfgateway.ini" /etc/ysfgateway
 sudo systemctl restart ysfgateway
 sleep 3
