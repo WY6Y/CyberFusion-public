@@ -51,4 +51,7 @@ echo "Status:"
 systemctl is-active mmdvmhost ysfgateway cyberfusion-dashboard tailscaled
 journalctl -u ysfgateway -n 4 --no-pager | grep -iE 'Loaded|Linked|Unable' || true
 echo ""
-echo "Dashboard: http://$(tailscale ip -4 2>/dev/null || hostname -I | awk '{print $1}')/"
+# Dashboard port follows PORT= in the systemd unit (default 5000).
+DASH_PORT="$(systemctl show cyberfusion-dashboard -p Environment 2>/dev/null | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+DASH_PORT="${DASH_PORT:-5000}"
+echo "Dashboard: http://$(tailscale ip -4 2>/dev/null || hostname -I | awk '{print $1}'):${DASH_PORT}/"

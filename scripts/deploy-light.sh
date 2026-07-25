@@ -88,7 +88,11 @@ sudo systemctl is-active mmdvmhost ysfgateway cyberfusion-dashboard || true
 pause
 
 echo "=== Deploy complete ==="
-echo "Dashboard: http://$(hostname -I | awk '{print $1}')/"
-echo "Tailscale:  http://$(tailscale ip -4 2>/dev/null || echo 'n/a')/"
-echo "AP mode:    http://192.168.50.1/  (SSID CyberFusion-Hotspot)"
-echo "Test room:  sudo ysf-link YSF23453"
+# Dashboard port follows PORT= in the systemd unit (default 5000).
+DASH_PORT="$(systemctl show cyberfusion-dashboard -p Environment 2>/dev/null | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+DASH_PORT="${DASH_PORT:-5000}"
+echo "Dashboard: http://$(hostname -I | awk '{print $1}'):${DASH_PORT}/"
+TS_IP="$(tailscale ip -4 2>/dev/null || true)"
+if [ -n "$TS_IP" ]; then echo "Remote (Tailscale): http://${TS_IP}:${DASH_PORT}/"; fi
+echo "AP mode:    http://192.168.50.1:${DASH_PORT}/  (SSID CyberFusion-Hotspot)"
+echo "Test room:  sudo ysf-link \"ZZ Parrot\"   # names, not YSF numbers"

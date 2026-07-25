@@ -44,5 +44,8 @@ echo "IPs:"
 hostname -I
 tailscale ip -4 2>/dev/null || echo "(tailscale not up yet — wait 30s)"
 echo ""
-echo "Dashboard: http://$(hostname -I | awk '{print $1}')/"
+# Dashboard port follows PORT= in the systemd unit (default 5000).
+DASH_PORT="$(systemctl show cyberfusion-dashboard -p Environment 2>/dev/null | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+DASH_PORT="${DASH_PORT:-5000}"
+echo "Dashboard: http://$(hostname -I | awk '{print $1}'):${DASH_PORT}/"
 echo "If only AP: connect phone to CyberFusion-Hotspot → http://192.168.50.1/"

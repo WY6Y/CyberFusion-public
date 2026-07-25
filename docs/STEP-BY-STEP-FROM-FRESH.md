@@ -160,7 +160,17 @@ sudo apt clean
 
 ---
 
-## Phase 4: Tailscale (Small & Independent)
+## Phase 4: Remote access — OPTIONAL, skip if LAN-only
+
+**Skip this phase entirely if you will use the hotspot from your own network.**
+The dashboard is reachable at `http://<pi-zero-ip>:5000` without it, and nothing
+later in this guide depends on Tailscale being installed — the scripts that
+mention it all fall back to the LAN address.
+
+Do this phase only if you want to reach the hotspot from outside your LAN. Any
+overlay network works (WireGuard, ZeroTier, an existing VPN). Tailscale is shown
+because it is the quickest to stand up, and because its certificates make the
+optional PWA/GPS features easy later.
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -176,6 +186,9 @@ sudo systemctl enable --now tailscaled
 ```
 
 Test: `tailscale ip -4`
+
+Whatever you choose, do **not** port-forward port 5000 to the public internet —
+the dashboard has no login. See "Security notes" in the README.
 
 ---
 
@@ -299,6 +312,8 @@ No pip, no venv, no Flask.
 ```bash
 sudo mkdir -p /opt/cyberfusion-dashboard/static
 sudo cp ~/dashboard/cyberfusion-dash.py /opt/cyberfusion-dashboard/
+# Optional APRS-IS tab; safe to skip, the dashboard runs without it
+sudo cp ~/dashboard/aprs_is.py /opt/cyberfusion-dashboard/ 2>/dev/null || true
 sudo cp -r ~/dashboard/static/* /opt/cyberfusion-dashboard/static/
 sudo chown -R pi:pi /opt/cyberfusion-dashboard
 ```
@@ -311,7 +326,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable cyberfusion-dashboard
 ```
 
-The dashboard listens on port 80 (or change to 8080 in the unit if you prefer non-root).
+The dashboard listens on **port 5000** (`Environment=PORT=5000` in the unit).
+Change that line if you want a different port — port 80 also works, since the
+unit already grants `CAP_NET_BIND_SERVICE`.
 
 ---
 
@@ -352,10 +369,12 @@ sudo reboot
 After reboot:
 
 - `ping cyberfusion-hotspot.local` from phone/laptop
-- Open http://cyberfusion-hotspot.local (or the IP, or 192.168.50.1 when in AP mode)
+- Open **http://cyberfusion-hotspot.local:5000** — or `http://<pi-zero-ip>:5000`,
+  or `http://192.168.50.1:5000` when it has fallen back to AP mode.
+  (Drop the `:5000` only if you changed `PORT` to 80 in Phase 10.)
 - Use the big neon buttons.
 - Check Nextion (if connected) shows status.
-- Use `tailscale` for remote when away.
+- For remote access from outside the LAN, see the optional Phase 4.
 
 ---
 

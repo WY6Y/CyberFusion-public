@@ -1,16 +1,39 @@
+####################################################################
+# CyberFusion dashboard — OPTIONAL reverse proxy (tier 3)
+#
+# You do NOT need this file to run the hotspot. The dashboard is
+# already reachable at http://<pi-zero-ip>:5000 on your LAN.
+#
+# Add a proxy only if you want HTTPS, which browsers require for:
+#   * installing the dashboard as a PWA ("Add to Home Screen")
+#   * the APRS tab's phone GPS (Geolocation API)
+#
+# Pick ONE of the three variants below, edit the placeholders, and
+# delete the rest. Run Caddy either on the Pi Zero itself or on
+# another always-on host that can reach it.
+####################################################################
+
 {
+    # Automatic public issuance is off; each variant below is explicit
+    # about where its certificate comes from.
     auto_https off
 }
 
-# CyberFusion YSF Hotspot Dashboard
-# Use the machine's Tailscale name for valid cert.
+# ------------------------------------------------------------------
+# VARIANT A — Tailscale certificate (easiest)
+#
+# Publicly trusted, so phones need nothing installed. Get the cert:
+#     sudo tailscale cert <your-host>.<your-tailnet>.ts.net
+# then copy the .crt/.key somewhere Caddy can read them.
+# scripts/setup-https-pwa.sh automates this.
+# ------------------------------------------------------------------
 your-hotspot.your-tailnet.ts.net {
     tls /etc/caddy/certs/your-hotspot.your-tailnet.ts.net.crt /etc/caddy/certs/your-hotspot.your-tailnet.ts.net.key
 
-    # Proxy to the dashboard (running on 5000 by default in this setup)
+    # If Caddy runs on a different host, replace 127.0.0.1 with the
+    # Pi Zero's address.
     reverse_proxy 127.0.0.1:5000
 
-    # Optional: add security headers for PWA
     header {
         X-Content-Type-Options nosniff
         X-Frame-Options DENY
@@ -18,7 +41,51 @@ your-hotspot.your-tailnet.ts.net {
     }
 }
 
-# Short name redirect if you set up /etc/hosts or Tailscale DNS
-http://MY-CF {
-    redir https://your-hotspot.your-tailnet.ts.net{uri} permanent
-}
+# ------------------------------------------------------------------
+# VARIANT B — Caddy's internal CA (no VPN, no domain)
+#
+# Works on a plain LAN, but every phone/laptop must install Caddy's
+# root CA once, or the browser will not treat the page as secure and
+# the PWA/GPS features stay disabled.
+#
+#   Root CA is served at:  https://<this-host>/caddy-ca.crt
+#   iOS: install, then Settings > General > About >
+#        Certificate Trust Settings > enable it.
+# ------------------------------------------------------------------
+# cyberfusion.local {
+#     tls internal
+#     reverse_proxy 127.0.0.1:5000
+#
+#     header {
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#     }
+# }
+
+# ------------------------------------------------------------------
+# VARIANT C — Let's Encrypt via DNS-01 (you own a domain)
+#
+# Publicly trusted like variant A, and needs no inbound ports open,
+# because DNS-01 proves control with a DNS record rather than HTTP.
+# Requires a DNS-provider plugin build of Caddy plus an API token.
+# Point the hostname at a private/VPN address if you do not want the
+# service publicly reachable.
+# ------------------------------------------------------------------
+# hotspot.example.com {
+#     tls {
+#         dns <your-dns-provider> {env.DNS_API_TOKEN}
+#     }
+#     reverse_proxy 127.0.0.1:5000
+#
+#     header {
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#     }
+# }
+
+# ------------------------------------------------------------------
+# Optional: redirect a short name to the HTTPS site.
+# ------------------------------------------------------------------
+# http://MY-CF {
+#     redir https://your-hotspot.your-tailnet.ts.net{uri} permanent
+# }
