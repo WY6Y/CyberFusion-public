@@ -8,9 +8,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="CyberFusion Hotspot">
   <title>CyberFusion • YSF Hotspot</title>
+  <base href="/">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="static/icons/cyberfusion-icon.jpg">
+  <link rel="icon" href="static/icons/cyberfusion-icon.jpg" sizes="192x192">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <style>
     :root {
       --neon-cyan: #00f0ff;
@@ -419,10 +425,385 @@
       min-width: 100px;
       font-size: 0.62rem;
     }
+
+    .anyroom-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 5, 0.92);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-panel {
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      box-shadow:
+        0 0 0 1px rgba(0, 240, 255, 0.1),
+        0 0 12px rgba(0, 240, 255, 0.15),
+        inset 0 0 12px rgba(0, 240, 255, 0.05);
+      background: var(--card);
+      border-radius: 2px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .modal-title {
+      font-family: "VT323", monospace;
+      font-size: 1.4rem;
+      letter-spacing: 3px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px var(--neon-cyan);
+      margin: 0 0 12px;
+      padding-right: 28px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      background: none;
+      border: none;
+      color: var(--neon-red);
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .roomlist {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      background: rgba(0, 0, 0, 0.4);
+      margin-top: 8px;
+    }
+
+    .roomlist-row {
+      padding: 8px 10px;
+      border-bottom: 1px dotted rgba(0, 255, 159, 0.15);
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s ease;
+    }
+
+    .roomlist-row:hover {
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .roomlist-row b {
+      color: var(--neon-green);
+      font-family: "VT323", monospace;
+      font-size: 1.15rem;
+      letter-spacing: 1px;
+    }
+
+    .roomlist-row small {
+      display: block;
+      color: #666;
+      font-size: 0.65rem;
+      margin-top: 2px;
+    }
+
+    .config-row {
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .config-row label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 2px;
+      opacity: 0.6;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .config-target-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .config-target-row .neon-button {
+      min-height: 38px;
+      min-width: 72px;
+      font-size: 0.58rem;
+    }
+
+    .hint {
+      font-size: 0.65rem;
+      color: #666;
+      margin: 8px 0;
+      line-height: 1.4;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .modal-actions .neon-button {
+      min-height: 40px;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    /* === Bottom tabs (YSF | APRS | WiFi) === */
+    .tab-panels { padding-bottom: 72px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .tab-bar {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 50;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+      background: rgba(5, 5, 10, 0.96);
+      border-top: 1px solid rgba(0, 240, 255, 0.35);
+      box-shadow: 0 -4px 20px rgba(0, 240, 255, 0.12);
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-family: inherit;
+      font-size: 0.62rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 10px 4px;
+      cursor: pointer;
+      min-height: 48px;
+    }
+    .tab-btn .tab-icon {
+      display: block;
+      font-family: "VT323", monospace;
+      font-size: 1.35rem;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+      color: inherit;
+    }
+    .tab-btn.active {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px var(--neon-cyan);
+    }
+    .tab-btn.active .tab-icon { color: var(--neon-green); text-shadow: 0 0 8px var(--neon-green); }
+
+    .aprs-status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .aprs-stat {
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+    }
+    .aprs-stat .v {
+      font-family: "VT323", monospace;
+      font-size: 1.25rem;
+      color: var(--neon-green);
+      letter-spacing: 1px;
+      word-break: break-all;
+    }
+    .aprs-fix {
+      font-family: "VT323", monospace;
+      font-size: 1.1rem;
+      color: var(--neon-cyan);
+      letter-spacing: 1px;
+      line-height: 1.35;
+      margin: 6px 0 10px;
+    }
+    /* APRS map */
+    .aprs-map-wrap {
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .aprs-map-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .aprs-map-toolbar .section-title {
+      margin: 0;
+      border: none;
+      padding: 0;
+    }
+    .map-basemap-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .map-basemap-picker label {
+      font-size: 0.58rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: 0.65;
+      white-space: nowrap;
+    }
+    .map-basemap-picker select {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: var(--neon-cyan);
+      font-family: inherit;
+      font-size: 0.68rem;
+      letter-spacing: 0.5px;
+      padding: 6px 8px;
+      min-height: 34px;
+      max-width: 52vw;
+      border-radius: 2px;
+    }
+    .map-basemap-picker select:focus {
+      outline: none;
+      border-color: var(--neon-green);
+      box-shadow: 0 0 8px rgba(0, 255, 159, 0.25);
+    }
+    .map-basemap-picker select option {
+      background: #0a0a0f;
+      color: #c0c0c0;
+    }
+    #aprs-map {
+      width: 100%;
+      height: min(48vh, 360px);
+      min-height: 240px;
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 2px;
+      z-index: 1;
+      background: #d4d9d4;
+    }
+    #aprs-map.map-filter-cyber .leaflet-tile-pane {
+      filter: brightness(1.15) contrast(1.05) saturate(1.1);
+    }
+    #aprs-map.map-filter-none .leaflet-tile-pane,
+    #aprs-map.map-filter-light .leaflet-tile-pane {
+      filter: none;
+    }
+    #aprs-map.map-filter-soft .leaflet-tile-pane {
+      filter: saturate(0.95) contrast(1.02);
+    }
+    .leaflet-container { font-family: inherit; }
+    .leaflet-control-zoom a {
+      background: rgba(10, 10, 15, 0.9) !important;
+      color: #00f0ff !important;
+      border-color: rgba(0, 240, 255, 0.35) !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(5, 5, 10, 0.75) !important;
+      color: #888 !important;
+      font-size: 9px !important;
+    }
+    .leaflet-control-attribution a { color: #00f0ff !important; }
+    .aprs-marker-self {
+      width: 18px; height: 18px; border-radius: 999px;
+      background: #ff00aa;
+      border: 2px solid #fff;
+      box-shadow: 0 0 10px #ff00aa, 0 0 20px rgba(255, 0, 170, 0.6);
+    }
+    .aprs-marker-stn {
+      width: 12px; height: 12px; border-radius: 999px;
+      border: 2px solid #0a0a0f;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .aprs-map-legend {
+      font-size: 0.6rem;
+      color: #888;
+      letter-spacing: 0.5px;
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    .nearby-list {
+      max-height: 36vh;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+    .nearby-row {
+      padding: 8px 6px;
+      border-bottom: 1px dotted rgba(0, 255, 159, 0.15);
+      cursor: pointer;
+    }
+    .nearby-row:hover, .nearby-row.open {
+      background: rgba(0, 240, 255, 0.06);
+    }
+    .nearby-row .cs {
+      font-family: "VT323", monospace;
+      font-size: 1.35rem;
+      color: var(--neon-green);
+      letter-spacing: 2px;
+      text-shadow: 0 0 6px rgba(0, 255, 159, 0.4);
+    }
+    .nearby-row .meta {
+      font-size: 0.68rem;
+      color: #888;
+      margin-top: 2px;
+    }
+    .nearby-row .cmt {
+      font-size: 0.75rem;
+      color: rgba(0, 240, 255, 0.85);
+      margin-top: 3px;
+      word-break: break-word;
+    }
+    .nearby-detail {
+      display: none;
+      margin-top: 6px;
+      padding: 8px;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      background: #000;
+      font-size: 0.68rem;
+      color: #aaa;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+    .nearby-row.open .nearby-detail { display: block; }
+
+    .beacon-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .beacon-toggle .neon-button.active-on {
+      background: var(--neon-green);
+      color: var(--bg);
+      box-shadow: 0 0 15px var(--neon-green);
+    }
+    .beacon-toggle .neon-button.active-off {
+      background: var(--neon-red);
+      color: #fff;
+      box-shadow: 0 0 12px var(--neon-red);
+    }
   </style>
 </head>
 <body class="cyber-grid scanlines">
-  <div class="wrap">
+  <div class="wrap tab-panels">
     <header class="header">
       <div>
         <div class="cyber-title neon-cyan" id="site-title">CYBERFUSION HOTSPOT</div>
@@ -437,6 +818,8 @@
       </div>
     </header>
 
+    <!-- ===== TAB: YSF ===== -->
+    <div id="panel-ysf" class="tab-panel active">
     <section class="hud-border">
       <div class="section-title neon-cyan">Current Room</div>
       <div class="hud-label">Linked reflector</div>
@@ -455,16 +838,121 @@
     </section>
 
     <div class="section-title neon-cyan" style="margin:16px 0 10px">Reflector Links</div>
+    <div id="quick-buttons" class="btn-grid"></div>
     <div class="btn-grid">
-      <button class="neon-button green" data-t="US-Kansas-City">Kansas City<small>US-Kansas-City</small></button>
-      <button class="neon-button" data-t="US-America Link">America Link</button>
-      <button class="neon-button green" data-t="US-TEXAS-DFW">Texas Fusion</button>
-      <button class="neon-button magenta" data-t="GB-CQ-WORLD">Worldwide</button>
       <button class="neon-button yellow full" data-t="ZZ Parrot">Parrot Test<small>PTT 3+ sec · wait 3 sec for echo</small></button>
       <button class="neon-button red" id="unlink">Disconnect</button>
       <button class="neon-button" id="reconnect">Reconnect Last</button>
     </div>
 
+    <section class="hud-border" style="margin-top:12px">
+      <div class="section-title neon-cyan">Link Any Room</div>
+      <div class="hud-label">Type a reflector name or browse the full list</div>
+      <div class="anyroom-row">
+        <input id="anyroom" class="wifi-input" type="text" placeholder="e.g. US-Kansas-City" autocomplete="off">
+        <button class="neon-button green" onclick="linkAny()" style="min-height:42px">Link</button>
+      </div>
+      <button class="neon-button full" onclick="openRoomPicker()" style="min-height:44px">Browse All Rooms</button>
+    </section>
+
+    <div class="utility-row">
+      <button class="neon-button magenta" onclick="openSetup()">Room Selector Setup</button>
+    </div>
+
+    <div class="section-title neon-green" style="margin-top:14px">Gateway Log <span style="opacity:0.5;font-size:0.65rem">auto</span></div>
+    <div id="log" class="terminal"></div>
+
+    <div class="utility-row">
+      <button class="neon-button" onclick="refresh()">Refresh</button>
+    </div>
+    </div><!-- /panel-ysf -->
+
+    <!-- ===== TAB: APRS ===== -->
+    <div id="panel-aprs" class="tab-panel">
+      <!-- Map first (below site banner) for travel discovery -->
+      <section class="hud-border aprs-map-wrap" id="aprs-map-section">
+        <div class="aprs-map-toolbar">
+          <div class="section-title neon-cyan">Nearby Map</div>
+          <div class="map-basemap-picker" title="Basemap style">
+            <label for="aprs-map-basemap">Map</label>
+            <select id="aprs-map-basemap" aria-label="Basemap style"></select>
+          </div>
+        </div>
+        <div id="aprs-map" role="img" aria-label="APRS stations map"></div>
+        <div class="aprs-map-legend">
+          <span class="neon-magenta">● you</span>
+          · <span class="neon-green">● fresh</span>
+          · <span class="neon-cyan">● recent</span>
+          · <span style="color:#ffeb3b">● older</span>
+          · default auto day/night
+        </div>
+      </section>
+
+      <section class="hud-border">
+        <div class="section-title neon-cyan">APRS Mobile Beacon</div>
+        <div class="hud-label">IS-only · phone GPS · no RF digi</div>
+        <p class="hint">Beacon only while this tab is open — Pi has no GPS. Use HTTPS. Keep the app in the foreground on iPhone.</p>
+
+        <div class="beacon-toggle">
+          <button type="button" class="neon-button green" id="aprs-beacon-on" onclick="aprsSetBeacon(true)">Beacon ON</button>
+          <button type="button" class="neon-button red" id="aprs-beacon-off" onclick="aprsSetBeacon(false)">Beacon OFF</button>
+        </div>
+
+        <div class="btn-grid" style="margin-bottom:10px">
+          <button type="button" class="neon-button yellow" onclick="aprsEnableGps()">Enable GPS</button>
+          <button type="button" class="neon-button" onclick="aprsForceBeacon()">TX Now</button>
+        </div>
+
+        <div class="aprs-status-grid">
+          <div class="aprs-stat">
+            <div class="hud-label">IS link</div>
+            <div class="v" id="aprs-is-state">—</div>
+          </div>
+          <div class="aprs-stat">
+            <div class="hud-label">Beacon</div>
+            <div class="v" id="aprs-beacon-state">OFF</div>
+          </div>
+          <div class="aprs-stat">
+            <div class="hud-label">Last TX</div>
+            <div class="v" id="aprs-last-tx">—</div>
+          </div>
+          <div class="aprs-stat">
+            <div class="hud-label">GPS age</div>
+            <div class="v" id="aprs-gps-age">—</div>
+          </div>
+        </div>
+
+        <div class="hud-label">Live fix</div>
+        <div class="aprs-fix" id="aprs-fix">GPS off — tap Enable GPS</div>
+      </section>
+
+      <section class="hud-border">
+        <div class="section-title neon-cyan">Station Info</div>
+        <div class="wifi-form">
+          <label class="hud-label" for="aprs-call">Callsign-SSID</label>
+          <input id="aprs-call" class="wifi-input" type="text" placeholder="N0CALL-9" autocomplete="off" maxlength="10">
+          <label class="hud-label" for="aprs-freq">Operating freq (MHz)</label>
+          <input id="aprs-freq" class="wifi-input" type="text" inputmode="decimal" placeholder="146.520" autocomplete="off">
+          <label class="hud-label" for="aprs-comment">Comment / status</label>
+          <input id="aprs-comment" class="wifi-input" type="text" placeholder="simplex monitoring" autocomplete="off" maxlength="40">
+          <label class="hud-label" for="aprs-range">Discovery range (km)</label>
+          <input id="aprs-range" class="wifi-input" type="number" min="5" max="500" step="5" value="50">
+          <button type="button" class="neon-button green full" onclick="aprsSaveControl()">Save &amp; Apply</button>
+        </div>
+        <p class="hint">Default SSID <b>-9</b> (mobile). Use an SSID you are not already using on RF. Path is TCPIP* only.</p>
+      </section>
+
+      <section class="hud-border">
+        <div class="section-title neon-cyan">Nearby Beacons</div>
+        <div class="hud-label">APRS-IS range filter · sorted by distance</div>
+        <div id="aprs-nearby" class="nearby-list">
+          <div class="nearby-row"><span class="meta">Enable GPS to center the filter</span></div>
+        </div>
+      </section>
+    </div><!-- /panel-aprs -->
+
+    <!-- ===== TAB: WiFi ===== -->
+    <div id="panel-wifi" class="tab-panel">
     <section class="hud-border" id="wifi-panel">
       <div class="section-title neon-cyan">WiFi Configuration</div>
       <div class="hud-label">Pi-Star style · add networks from hotspot or dashboard</div>
@@ -491,18 +979,60 @@
         <button class="neon-button" onclick="wifi('force-client')">Try Client WiFi</button>
       </div>
     </section>
+    </div><!-- /panel-wifi -->
 
-    <div class="section-title neon-green" style="margin-top:14px">Gateway Log <span style="opacity:0.5;font-size:0.65rem">auto</span></div>
-    <div id="log" class="terminal"></div>
+  </div><!-- /wrap -->
 
-    <div class="utility-row">
-      <button class="neon-button" onclick="refresh()">Refresh</button>
+  <nav class="tab-bar" role="tablist" aria-label="CyberFusion sections">
+    <button type="button" class="tab-btn active" data-tab="ysf" onclick="switchTab('ysf')">
+      <span class="tab-icon">YSF</span>Room
+    </button>
+    <button type="button" class="tab-btn" data-tab="aprs" onclick="switchTab('aprs')">
+      <span class="tab-icon">APRS</span>Beacon
+    </button>
+    <button type="button" class="tab-btn" data-tab="wifi" onclick="switchTab('wifi')">
+      <span class="tab-icon">WiFi</span>Network
+    </button>
+  </nav>
+
+  <div id="picker-modal" class="modal">
+    <div class="modal-panel">
+      <button class="modal-close" onclick="closePicker()">&times;</button>
+      <h2 class="modal-title">ROOM SELECTOR</h2>
+      <input id="picker-search" class="wifi-input" type="text" placeholder="Search name, description, or YSF number..." oninput="filterRooms()">
+      <div id="roomlist" class="roomlist"></div>
+      <div class="hint">Tap a room to link, or type any custom name in the field above.</div>
+      <div class="modal-actions">
+        <button class="neon-button" onclick="closePicker()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="setup-modal" class="modal">
+    <div class="modal-panel">
+      <button class="modal-close" onclick="closeSetup()">&times;</button>
+      <h2 class="modal-title">BUTTON SETUP</h2>
+      <div id="setup-rows"></div>
+      <div class="hint">Edit labels and targets for your four quick-link buttons. Use Browse to pick from the live reflector list.</div>
+      <div class="modal-actions">
+        <button class="neon-button green" onclick="saveSetup()">Save Buttons</button>
+        <button class="neon-button yellow" onclick="resetSetup()">Reset Defaults</button>
+        <button class="neon-button" onclick="closeSetup()">Close</button>
+      </div>
     </div>
   </div>
 
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
+
+let cachedButtons = [];
+let roomCache = [];
+let setupState = [];
+let pickerCallback = null;
+let pickerFromSetup = false;
+
+const BUTTON_COLORS = ['green', '', 'green', 'magenta'];
 
 async function refresh() {
   const r = await fetch('/api/status').then(r=>r.json()).catch(()=>({}));
@@ -551,7 +1081,7 @@ async function loadWifi() {
   if (st.mode === 'ap') {
     el.innerHTML = '<span class="neon-yellow">HOTSPOT MODE</span> · join <b>' + (st.ap_ssid || 'CyberFusion-Hotspot') + '</b> · dashboard <b>' + (st.ap_ip || '192.168.50.1') + '</b>';
   } else if (st.ssid) {
-    el.innerHTML = '<span class="neon-green">CONNECTED</span> · ' + st.ssid + ' · ' + (st.ip || 'no ip');
+    el.innerHTML = '<span class="neon-green">CONNECTED</span> · ' + escapeHtml(st.ssid) + ' · ' + escapeHtml(st.ip || 'no ip');
   } else {
     el.innerHTML = '<span class="neon-cyan">NO WIFI</span> · use hotspot or add a network below';
   }
@@ -566,11 +1096,15 @@ async function loadWifi() {
     nets.forEach(n => {
       const row = document.createElement('div');
       row.className = 'wifi-row' + (n.active ? ' active' : '');
-      row.innerHTML = '<div><div class="wifi-ssid">' + n.ssid + '</div><div class="wifi-meta">prio ' + n.priority + (n.active ? ' · active' : '') + '</div></div>'
+      // Listeners instead of inline onclick: esc() only guarded the JS string,
+      // so an SSID containing a double quote broke out of the attribute.
+      row.innerHTML = '<div><div class="wifi-ssid">' + escapeHtml(n.ssid) + '</div><div class="wifi-meta">prio ' + escapeHtml(n.priority) + (n.active ? ' · active' : '') + '</div></div>'
         + '<div class="wifi-actions">'
-        + '<button class="neon-button green" onclick="wifiConnect(\'' + esc(n.name) + '\')">Connect</button>'
-        + '<button class="neon-button red" onclick="wifiDelete(\'' + esc(n.name) + '\')">Del</button>'
+        + '<button class="neon-button green" data-act="connect">Connect</button>'
+        + '<button class="neon-button red" data-act="delete">Del</button>'
         + '</div>';
+      row.querySelector('[data-act="connect"]').onclick = () => wifiConnect(n.name);
+      row.querySelector('[data-act="delete"]').onclick = () => wifiDelete(n.name);
       box.appendChild(row);
     });
   }
@@ -635,7 +1169,7 @@ async function wifiScan() {
     const row = document.createElement('div');
     row.className = 'wifi-scan-row';
     row.onclick = () => pickScan(n.ssid);
-    row.innerHTML = '<span class="wifi-ssid">' + n.ssid + '</span><span class="wifi-meta">' + n.signal + '% · ' + n.security + '</span>';
+    row.innerHTML = '<span class="wifi-ssid">' + escapeHtml(n.ssid) + '</span><span class="wifi-meta">' + escapeHtml(n.signal) + '% · ' + escapeHtml(n.security) + '</span>';
     box.appendChild(row);
   });
   $('#wifi-status').textContent = 'Tap a network to fill SSID, then enter password';
@@ -645,6 +1179,206 @@ async function wifiScan() {
 $$('.neon-button[data-t]').forEach(b => b.onclick = () => link(b.dataset.t));
 $('#unlink').onclick = unlink;
 $('#reconnect').onclick = reconnect;
+
+async function loadButtons() {
+  try {
+    const res = await fetch('/api/buttons').then(r => r.json());
+    cachedButtons = res.buttons || [];
+  } catch (e) {
+    cachedButtons = [];
+  }
+  renderQuickButtons();
+}
+
+function renderQuickButtons() {
+  const container = $('#quick-buttons');
+  container.innerHTML = '';
+  const buttons = cachedButtons.length ? cachedButtons : [
+    {label: 'Kansas City', target: 'US-Kansas-City'},
+    {label: 'America Link', target: 'US-America Link'},
+    {label: 'Texas Fusion', target: 'US-TEXAS-DFW'},
+    {label: 'Worldwide', target: 'GB-CQ-WORLD'},
+  ];
+  buttons.forEach((b, i) => {
+    const btn = document.createElement('button');
+    const color = BUTTON_COLORS[i] || '';
+    btn.className = 'neon-button' + (color ? ' ' + color : '');
+    btn.innerHTML = escapeHtml(b.label) + '<small>' + escapeHtml(b.target) + '</small>';
+    btn.onclick = () => link(b.target);
+    container.appendChild(btn);
+  });
+}
+
+function linkAny() {
+  const v = $('#anyroom').value.trim();
+  if (v) link(v);
+}
+
+// Pass cb to pick a room for the Setup screen; omit it to link immediately.
+// (This used to hard-reset pickerCallback, clobbering the callback Setup had
+// just assigned, so picking a room silently linked instead of setting a button.)
+async function openRoomPicker(cb) {
+  pickerCallback = cb || null;
+  pickerFromSetup = !!cb;
+  $('#picker-modal').classList.add('open');
+  $('#picker-search').value = '';
+  await loadRoomList('');
+  $('#picker-search').focus();
+}
+
+function closePicker() {
+  $('#picker-modal').classList.remove('open');
+  const wasSetup = pickerFromSetup;
+  pickerFromSetup = false;
+  pickerCallback = null;
+  // Came from Setup: go back there instead of dumping to the main screen,
+  // so in-progress button edits aren't lost on cancel.
+  if (wasSetup) {
+    $('#setup-modal').classList.add('open');
+    renderSetupRows();
+  }
+}
+
+let roomReqSeq = 0;
+async function loadRoomList(q) {
+  const listEl = $('#roomlist');
+  const seq = ++roomReqSeq;
+  listEl.innerHTML = '<div class="roomlist-row">Loading rooms...</div>';
+  try {
+    const url = '/api/rooms' + (q ? '?q=' + encodeURIComponent(q) : '');
+    const data = await fetch(url).then(r => r.json());
+    if (seq !== roomReqSeq) return;  // a newer keystroke already won
+    roomCache = data.rooms || [];
+    renderRoomList(roomCache);
+  } catch (e) {
+    if (seq !== roomReqSeq) return;
+    listEl.innerHTML = '<div class="roomlist-row">Failed to load room list.</div>';
+  }
+}
+
+// Always search server-side: the box holds ~1700 reflectors but any single
+// response is capped, so filtering the local cache only ever searched the
+// first page of names (typing "KC" or "32453" found nothing).
+let roomFilterTimer = null;
+function filterRooms() {
+  clearTimeout(roomFilterTimer);
+  roomFilterTimer = setTimeout(() => {
+    loadRoomList($('#picker-search').value || '');
+  }, 200);
+}
+
+function renderRoomList(rooms) {
+  const listEl = $('#roomlist');
+  listEl.innerHTML = '';
+  if (!rooms.length) {
+    const d = document.createElement('div');
+    d.className = 'roomlist-row';
+    d.textContent = 'No matches — type a custom name instead.';
+    listEl.appendChild(d);
+    return;
+  }
+  rooms.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'roomlist-row';
+    d.innerHTML = '<b>' + escHtml(r.target || r.name) + '</b>'
+      + (r.id ? ' <span style="opacity:0.6">YSF' + escHtml(r.id) + '</span>' : '')
+      + '<small>' + escHtml(r.desc || '') + '</small>';
+    d.onclick = () => {
+      // Must use the gateway's composed name (US-KCWide), not the bare one.
+      const tgt = r.target || r.name;
+      const cb = pickerCallback;
+      pickerFromSetup = false;   // cb re-opens Setup itself
+      closePicker();
+      if (cb) cb(tgt); else link(tgt);
+    };
+    listEl.appendChild(d);
+  });
+}
+
+function openSetup() {
+  setupState = JSON.parse(JSON.stringify(cachedButtons.length ? cachedButtons : [
+    {label: 'Kansas City', target: 'US-Kansas-City'},
+    {label: 'America Link', target: 'US-America Link'},
+    {label: 'Texas Fusion', target: 'US-TEXAS-DFW'},
+    {label: 'Worldwide', target: 'GB-CQ-WORLD'},
+  ]));
+  renderSetupRows();
+  $('#setup-modal').classList.add('open');
+}
+
+function closeSetup() {
+  $('#setup-modal').classList.remove('open');
+}
+
+function renderSetupRows() {
+  const cont = $('#setup-rows');
+  cont.innerHTML = '';
+  setupState.forEach((b, idx) => {
+    const row = document.createElement('div');
+    row.className = 'config-row';
+    row.innerHTML =
+      '<label>Button ' + (idx + 1) + ' label</label>'
+      + '<input class="wifi-input" data-idx="' + idx + '" data-k="label" value="' + escHtml(b.label || '') + '">'
+      + '<label>Target (room name)</label>'
+      + '<div class="config-target-row">'
+      + '<input class="wifi-input" data-idx="' + idx + '" data-k="target" value="' + escHtml(b.target || '') + '">'
+      + '<button class="neon-button" data-pick="' + idx + '">Browse</button>'
+      + '</div>';
+    cont.appendChild(row);
+  });
+  cont.querySelectorAll('input').forEach(inp => {
+    inp.oninput = () => {
+      const i = +inp.dataset.idx;
+      setupState[i][inp.dataset.k] = inp.value;
+    };
+  });
+  cont.querySelectorAll('button[data-pick]').forEach(btn => {
+    btn.onclick = () => {
+      const i = +btn.dataset.pick;
+      cont.querySelectorAll('input').forEach(inp => {
+        const ii = +inp.dataset.idx;
+        setupState[ii][inp.dataset.k] = inp.value;
+      });
+      closeSetup();
+      openRoomPicker((chosen) => {
+        setupState[i].target = chosen;
+        $('#setup-modal').classList.add('open');
+        renderSetupRows();
+      });
+    };
+  });
+}
+
+// Single implementation; escapeHtml() also covers '>'.
+function escHtml(s) {
+  return escapeHtml(s);
+}
+
+async function saveSetup() {
+  const clean = setupState.filter(b => b.target && b.target.trim());
+  const res = await fetch('/api/buttons', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({buttons: clean}),
+  }).then(r => r.json());
+  if (res.ok) {
+    cachedButtons = res.buttons || clean;
+    renderQuickButtons();
+    closeSetup();
+  } else {
+    $('#detail').textContent = 'Button save failed';
+  }
+}
+
+function resetSetup() {
+  setupState = [
+    {label: 'Kansas City', target: 'US-Kansas-City'},
+    {label: 'America Link', target: 'US-America Link'},
+    {label: 'Texas Fusion', target: 'US-TEXAS-DFW'},
+    {label: 'Worldwide', target: 'GB-CQ-WORLD'},
+  ];
+  renderSetupRows();
+}
 
 async function loadLog() {
   const r = await fetch('/api/log').then(r=>r.json()).catch(()=>({lines:[]}));
@@ -685,8 +1419,9 @@ async function loadTraffic() {
     const dur = e.duration ? e.duration.toFixed(1) + 's' : '';
     const t = e.time || '';
     const when = t.includes('T') ? t.replace('T', ' ').slice(11, 19) : t.slice(11, 19);
-    d.innerHTML = '<span class="cs">' + e.callsign + '</span>'
-      + '<span class="meta">' + [when, dur, e.dest, e.dgid ? 'DG ' + e.dgid : ''].filter(Boolean).join(' · ') + '</span>';
+    // callsign/dest come straight from the MMDVM log (i.e. off the air).
+    d.innerHTML = '<span class="cs">' + escapeHtml(e.callsign) + '</span>'
+      + '<span class="meta">' + escapeHtml([when, dur, e.dest, e.dgid ? 'DG ' + e.dgid : ''].filter(Boolean).join(' · ')) + '</span>';
     list.appendChild(d);
   });
 }
@@ -704,7 +1439,721 @@ async function loadSite() {
 }
 
 setInterval(() => { refresh(); loadTraffic(); loadLog(); loadWifi(); }, 5000);
-loadSite(); refresh(); loadTraffic(); loadLog(); loadWifi();
+loadSite(); loadButtons(); refresh(); loadTraffic(); loadLog(); loadWifi();
+fetch('/api/rooms').then(r => r.json()).then(d => { roomCache = d.rooms || []; }).catch(() => {});
+
+// === Tabs ===
+let activeTab = 'ysf';
+function switchTab(name) {
+  activeTab = name;
+  ['ysf', 'aprs', 'wifi'].forEach(t => {
+    const panel = document.getElementById('panel-' + t);
+    if (panel) panel.classList.toggle('active', t === name);
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === name);
+  });
+  if (name === 'aprs') {
+    aprsRefresh();
+    aprsMapEnsure();
+    setTimeout(aprsMapInvalidate, 80);
+  }
+  try { localStorage.setItem('cyberfusion_tab', name); } catch (e) {}
+}
+try {
+  const t0 = localStorage.getItem('cyberfusion_tab');
+  if (t0 && ['ysf', 'aprs', 'wifi'].includes(t0)) switchTab(t0);
+} catch (e) {}
+
+// === APRS mobile (phone GPS → Pi → APRS-IS) ===
+const APRS_LS_KEY = 'cyberfusion_aprs';
+let aprsWatchId = null;
+let aprsWakeLock = null;
+let aprsLastLocalFix = null;
+let aprsPollTimer = null;
+let aprsLastStatus = null;
+let aprsLastStations = [];
+
+// ---------- APRS map (Leaflet) ----------
+const APRS_BASEMAP_KEY = 'cyberfusion_aprs_basemap';
+const CARTO_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const APRS_BASEMAPS = {
+  auto: {
+    label: 'Auto (day / night)',
+    // placeholder — resolved at apply time
+    resolve: () => (aprsIsDaytime() ? 'voyager' : 'dark'),
+  },
+  voyager: {
+    label: 'Voyager (clear daylight)',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    opts: { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 },
+    filter: 'soft',
+    bg: '#d4d9d4',
+  },
+  positron: {
+    label: 'Positron (light)',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    opts: { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 },
+    filter: 'none',
+    bg: '#f0f0f0',
+  },
+  osm: {
+    label: 'Street (OSM)',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    opts: {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    },
+    filter: 'none',
+    bg: '#ddd',
+  },
+  topo: {
+    label: 'Topo',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    opts: {
+      attribution: 'Map data: &copy; OSM, SRTM | Style: &copy; OpenTopoMap (CC-BY-SA)',
+      maxZoom: 17,
+    },
+    filter: 'none',
+    bg: '#c8d4b8',
+  },
+  dark: {
+    label: 'Dark (night)',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    opts: { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 },
+    filter: 'none',
+    bg: '#0a0a0f',
+  },
+  cyber: {
+    label: 'Cyber (lifted dark)',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    opts: { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 },
+    filter: 'cyber',
+    bg: '#1a1a24',
+  },
+  satellite: {
+    label: 'Satellite',
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        opts: { attribution: 'Tiles &copy; Esri', maxZoom: 19 },
+      },
+    ],
+    filter: 'none',
+    bg: '#1a1a14',
+  },
+  hybrid: {
+    label: 'Satellite + roads',
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        opts: { attribution: 'Tiles &copy; Esri', maxZoom: 19 },
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+        opts: { maxZoom: 19 },
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        opts: { maxZoom: 19 },
+      },
+    ],
+    filter: 'none',
+    bg: '#1a1a14',
+  },
+  hybrid_places: {
+    label: 'Satellite + boundaries',
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        opts: { attribution: 'Tiles &copy; Esri', maxZoom: 19 },
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        opts: { maxZoom: 19 },
+      },
+    ],
+    filter: 'none',
+    bg: '#1a1a14',
+  },
+};
+
+let aprsMap = null;
+let aprsBasemapLayer = null;
+let aprsSelfMarker = null;
+let aprsStationLayer = null;
+let aprsDidFit = false;
+let aprsCurrentBasemapId = 'auto';
+let aprsResolvedBasemapId = 'voyager';
+let aprsMapReady = false;
+
+function aprsIsDaytime() {
+  const h = new Date().getHours();
+  return h >= 6 && h < 20; // local: bright day default 06–20
+}
+
+function aprsBasemapLayerSpecs(cfg) {
+  if (cfg.layers && cfg.layers.length) return cfg.layers;
+  if (cfg.url) return [{ url: cfg.url, opts: cfg.opts || {} }];
+  return [];
+}
+
+function aprsResolveBasemapId(id) {
+  if (id === 'auto' || !APRS_BASEMAPS[id] || APRS_BASEMAPS[id].resolve) {
+    return aprsIsDaytime() ? 'voyager' : 'dark';
+  }
+  return id;
+}
+
+function aprsApplyBasemap(id) {
+  if (!aprsMap) return;
+  const pick = APRS_BASEMAPS[id] ? id : 'auto';
+  const resolved = aprsResolveBasemapId(pick);
+  const cfg = APRS_BASEMAPS[resolved] || APRS_BASEMAPS.voyager;
+  if (aprsBasemapLayer) {
+    aprsMap.removeLayer(aprsBasemapLayer);
+    aprsBasemapLayer = null;
+  }
+  if (!aprsMap.getPane('basemapBase')) {
+    aprsMap.createPane('basemapBase');
+    aprsMap.getPane('basemapBase').style.zIndex = 200;
+    aprsMap.createPane('basemapLabels');
+    aprsMap.getPane('basemapLabels').style.zIndex = 250;
+    aprsMap.getPane('basemapLabels').style.pointerEvents = 'none';
+  }
+  const group = L.layerGroup();
+  aprsBasemapLayerSpecs(cfg).forEach((spec, i) => {
+    const isOverlay = i > 0;
+    const opts = Object.assign({}, spec.opts || {}, {
+      pane: isOverlay ? 'basemapLabels' : 'basemapBase',
+      zIndex: isOverlay ? 250 + i : 200,
+      maxZoom: (spec.opts && spec.opts.maxZoom) || 19,
+    });
+    L.tileLayer(spec.url, opts).addTo(group);
+  });
+  group.addTo(aprsMap);
+  aprsBasemapLayer = group;
+  const mapEl = document.getElementById('aprs-map');
+  if (mapEl) {
+    mapEl.classList.remove('map-filter-cyber', 'map-filter-none', 'map-filter-soft', 'map-filter-light');
+    mapEl.classList.add('map-filter-' + (cfg.filter || 'none'));
+    mapEl.style.background = cfg.bg || '#d4d9d4';
+  }
+  const container = aprsMap.getContainer();
+  if (container) container.style.background = cfg.bg || '#d4d9d4';
+  aprsCurrentBasemapId = pick;
+  aprsResolvedBasemapId = resolved;
+  try { localStorage.setItem(APRS_BASEMAP_KEY, pick); } catch (e) {}
+  const sel = document.getElementById('aprs-map-basemap');
+  if (sel && sel.value !== pick) sel.value = pick;
+}
+
+function aprsMapEnsure() {
+  if (aprsMapReady || typeof L === 'undefined') return;
+  const el = document.getElementById('aprs-map');
+  if (!el) return;
+  // Default center: last GPS or Edmond OK area
+  let lat = 39.83, lon = -98.58, z = 4;   // neutral until GPS/last fix arrives
+  if (aprsLastLocalFix) {
+    lat = aprsLastLocalFix.lat;
+    lon = aprsLastLocalFix.lon;
+    z = 12;
+  } else if (aprsLastStatus && aprsLastStatus.gps && aprsLastStatus.gps.lat != null) {
+    lat = aprsLastStatus.gps.lat;
+    lon = aprsLastStatus.gps.lon;
+    z = 12;
+  }
+  aprsMap = L.map('aprs-map', { zoomControl: true, attributionControl: true }).setView([lat, lon], z);
+  aprsStationLayer = L.layerGroup().addTo(aprsMap);
+
+  try {
+    const saved = localStorage.getItem(APRS_BASEMAP_KEY);
+    aprsCurrentBasemapId = (saved && APRS_BASEMAPS[saved]) ? saved : 'auto';
+  } catch (e) {
+    aprsCurrentBasemapId = 'auto';
+  }
+  const sel = document.getElementById('aprs-map-basemap');
+  if (sel) {
+    sel.innerHTML = Object.entries(APRS_BASEMAPS).map(([id, cfg]) =>
+      '<option value="' + id + '">' + cfg.label + '</option>'
+    ).join('');
+    sel.value = aprsCurrentBasemapId;
+    sel.addEventListener('change', () => {
+      aprsDidFit = false; // don't force-fit on style change
+      aprsApplyBasemap(sel.value);
+    });
+  }
+  aprsApplyBasemap(aprsCurrentBasemapId);
+  aprsMapReady = true;
+  aprsMapUpdateMarkers(aprsLastStations, aprsLastStatus);
+  // Re-check auto day/night every 15 min while page open
+  setInterval(() => {
+    if (aprsCurrentBasemapId === 'auto' && aprsMapReady) {
+      const next = aprsResolveBasemapId('auto');
+      if (next !== aprsResolvedBasemapId) aprsApplyBasemap('auto');
+    }
+  }, 15 * 60 * 1000);
+}
+
+function aprsMapInvalidate() {
+  if (!aprsMap) return;
+  try {
+    aprsMap.invalidateSize();
+  } catch (e) {}
+}
+
+function aprsStationColor(ageSec) {
+  if (ageSec == null) return '#00f0ff';
+  if (ageSec < 600) return '#00ff9f';      // <10m fresh
+  if (ageSec < 3600) return '#00f0ff';     // <1h
+  if (ageSec < 21600) return '#ffeb3b';    // <6h
+  return '#888888';
+}
+
+function aprsDivIcon(html, size) {
+  return L.divIcon({
+    className: '',
+    html: html,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function aprsMapUpdateMarkers(stations, status) {
+  if (!aprsMapReady || !aprsMap) return;
+  stations = stations || [];
+  const bounds = [];
+
+  // Self / phone position
+  let selfLat = null, selfLon = null;
+  if (aprsLastLocalFix && aprsLastLocalFix.lat != null) {
+    selfLat = aprsLastLocalFix.lat;
+    selfLon = aprsLastLocalFix.lon;
+  } else if (status && status.gps && status.gps.lat != null) {
+    selfLat = status.gps.lat;
+    selfLon = status.gps.lon;
+  }
+  const call = (status && status.callsign) || (document.getElementById('aprs-call') && document.getElementById('aprs-call').value) || 'YOU';
+  if (selfLat != null && selfLon != null) {
+    const ll = [selfLat, selfLon];
+    bounds.push(ll);
+    const popup = '<b>' + escapeHtml(call) + '</b><br>you (phone GPS)'
+      + (status && status.beacon_on ? '<br><span style="color:#ffff00">beacon armed</span>' : '');
+    if (aprsSelfMarker) {
+      aprsSelfMarker.setLatLng(ll);
+      aprsSelfMarker.setPopupContent(popup);
+    } else {
+      aprsSelfMarker = L.marker(ll, {
+        icon: aprsDivIcon('<div class="aprs-marker-self"></div>', 18),
+        zIndexOffset: 1000,
+      }).addTo(aprsMap).bindPopup(popup);
+    }
+  }
+
+  // Nearby stations
+  if (aprsStationLayer) aprsStationLayer.clearLayers();
+  stations.forEach(st => {
+    if (st.lat == null || st.lon == null) return;
+    const age = st.age_sec != null ? st.age_sec : 9999;
+    const color = aprsStationColor(age);
+    const ll = [st.lat, st.lon];
+    bounds.push(ll);
+    const dist = st.distance_km != null ? st.distance_km.toFixed(1) + ' km' : '';
+    const ageTxt = age < 60 ? age + 's' : (Math.round(age / 60) + 'm');
+    const cse = st.course != null ? st.course + '°' : '';
+    const spd = st.speed != null ? st.speed + ' kn' : '';
+    const html =
+      '<b>' + escapeHtml(st.callsign || '?') + '</b><br>'
+      + [dist, ageTxt + ' ago', cse, spd].filter(Boolean).join(' · ')
+      + (st.comment ? '<br>' + escapeHtml(st.comment) : '');
+    const icon = aprsDivIcon(
+      '<div class="aprs-marker-stn" style="background:' + color + ';color:' + color + '"></div>',
+      12
+    );
+    L.marker(ll, { icon: icon }).addTo(aprsStationLayer).bindPopup(html);
+  });
+
+  // Fit once when we have useful data
+  if (!aprsDidFit && bounds.length) {
+    try {
+      if (bounds.length === 1) {
+        aprsMap.setView(bounds[0], 12);
+      } else {
+        aprsMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 });
+      }
+      aprsDidFit = true;
+    } catch (e) {}
+  } else if (selfLat != null && aprsLastLocalFix && aprsLastLocalFix.at && (Date.now() - aprsLastLocalFix.at) < 15000) {
+    // Gentle pan toward latest phone fix without yanking user zoom
+    // only if map is still near previous center
+  }
+}
+
+function aprsMapFollowSelf() {
+  if (!aprsMap || !aprsLastLocalFix) return;
+  // Keep self visible when following is reasonable (user hasn't zoomed out far)
+  try {
+    const z = aprsMap.getZoom();
+    if (z >= 10) {
+      aprsMap.panTo([aprsLastLocalFix.lat, aprsLastLocalFix.lon], { animate: true });
+    }
+  } catch (e) {}
+}
+
+function aprsLoadLocal() {
+  try {
+    return JSON.parse(localStorage.getItem(APRS_LS_KEY) || '{}') || {};
+  } catch (e) { return {}; }
+}
+function aprsSaveLocal( partial ) {
+  const cur = aprsLoadLocal();
+  Object.assign(cur, partial);
+  try { localStorage.setItem(APRS_LS_KEY, JSON.stringify(cur)); } catch (e) {}
+}
+
+function aprsInitFields(status) {
+  const loc = aprsLoadLocal();
+  const call = loc.callsign || (status && status.callsign) || 'N0CALL-9';
+  const freq = loc.freq || (status && status.freq) || '146.520';
+  const comment = loc.comment != null ? loc.comment : ((status && status.comment) || '');
+  const range = loc.range_km || (status && status.range_km) || 50;
+  const callEl = $('#aprs-call');
+  const freqEl = $('#aprs-freq');
+  const cmtEl = $('#aprs-comment');
+  const rngEl = $('#aprs-range');
+  if (callEl && !callEl.dataset.touched) callEl.value = call;
+  if (freqEl && !freqEl.dataset.touched) freqEl.value = freq;
+  if (cmtEl && !cmtEl.dataset.touched) cmtEl.value = comment;
+  if (rngEl && !rngEl.dataset.touched) rngEl.value = range;
+}
+
+['aprs-call', 'aprs-freq', 'aprs-comment', 'aprs-range'].forEach(id => {
+  // mark dirty once user edits
+});
+
+async function aprsPost(path, body) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  return r.json().catch(() => ({}));
+}
+
+async function aprsEnableGps() {
+  if (!navigator.geolocation) {
+    alert('Geolocation not available in this browser.');
+    return;
+  }
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isSecure) {
+    alert('Phone GPS needs HTTPS.\nOpen this dashboard over its HTTPS address and try again.');
+  }
+  if (aprsWatchId != null) {
+    navigator.geolocation.clearWatch(aprsWatchId);
+    aprsWatchId = null;
+  }
+  const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
+  // Immediate fix
+  navigator.geolocation.getCurrentPosition(aprsOnFix, aprsOnGeoErr, opts);
+  aprsWatchId = navigator.geolocation.watchPosition(aprsOnFix, aprsOnGeoErr, opts);
+  const fixEl = $('#aprs-fix');
+  if (fixEl) fixEl.textContent = 'Requesting GPS…';
+}
+
+function aprsOnGeoErr(err) {
+  const msg = (err && err.message) || 'GPS error';
+  const fixEl = $('#aprs-fix');
+  if (fixEl) fixEl.textContent = 'GPS: ' + msg;
+}
+
+function aprsOnFix(pos) {
+  if (!pos || !pos.coords) return;
+  const c = pos.coords;
+  const payload = {
+    lat: c.latitude,
+    lon: c.longitude,
+    accuracy: c.accuracy,
+    course: (c.heading != null && !isNaN(c.heading)) ? c.heading : null,
+    speed_mps: (c.speed != null && !isNaN(c.speed)) ? c.speed : null,
+  };
+  aprsLastLocalFix = { ...payload, at: Date.now() };
+  const acc = c.accuracy != null ? Math.round(c.accuracy) + 'm' : '?';
+  const spd = c.speed != null && !isNaN(c.speed) ? (c.speed * 2.23694).toFixed(1) + ' mph' : '';
+  const hdg = c.heading != null && !isNaN(c.heading) ? Math.round(c.heading) + '°' : '';
+  const fixEl = $('#aprs-fix');
+  if (fixEl) {
+    fixEl.textContent =
+      c.latitude.toFixed(5) + ', ' + c.longitude.toFixed(5)
+      + ' · ±' + acc
+      + (spd ? ' · ' + spd : '')
+      + (hdg ? ' · ' + hdg : '');
+  }
+  aprsPost('/api/aprs/position', payload).catch(() => {});
+  // Update map self marker promptly
+  if (aprsMapReady) {
+    aprsMapUpdateMarkers(aprsLastStations, aprsLastStatus);
+    aprsMapFollowSelf();
+  } else if (activeTab === 'aprs') {
+    aprsMapEnsure();
+  }
+}
+
+async function aprsSetBeacon(on) {
+  if (on && !aprsWatchId) {
+    await aprsEnableGps();
+  }
+  const body = {
+    beacon: !!on,
+    callsign: ($('#aprs-call') && $('#aprs-call').value) || undefined,
+    freq: ($('#aprs-freq') && $('#aprs-freq').value) || undefined,
+    comment: ($('#aprs-comment') && $('#aprs-comment').value) || undefined,
+    range_km: ($('#aprs-range') && $('#aprs-range').value) || undefined,
+  };
+  aprsSaveLocal({
+    callsign: body.callsign,
+    freq: body.freq,
+    comment: body.comment,
+    range_km: body.range_km,
+  });
+  const res = await aprsPost('/api/aprs/control', body);
+  if (on) aprsRequestWakeLock();
+  else aprsReleaseWakeLock();
+  aprsRenderStatus(res);
+  if (res.ok === false && res.error) alert(res.error);
+}
+
+async function aprsSaveControl() {
+  const body = {
+    callsign: ($('#aprs-call') && $('#aprs-call').value.trim()) || '',
+    freq: ($('#aprs-freq') && $('#aprs-freq').value.trim()) || '',
+    comment: ($('#aprs-comment') && $('#aprs-comment').value.trim()) || '',
+    range_km: parseFloat(($('#aprs-range') && $('#aprs-range').value) || '50'),
+  };
+  aprsSaveLocal(body);
+  const res = await aprsPost('/api/aprs/control', body);
+  aprsRenderStatus(res);
+  if (res.ok === false && res.error) alert(res.error);
+  else aprsRefreshNearby();
+}
+
+async function aprsForceBeacon() {
+  if (!aprsWatchId) await aprsEnableGps();
+  // push latest fix first if we have one
+  if (aprsLastLocalFix) {
+    await aprsPost('/api/aprs/position', {
+      lat: aprsLastLocalFix.lat,
+      lon: aprsLastLocalFix.lon,
+      accuracy: aprsLastLocalFix.accuracy,
+      course: aprsLastLocalFix.course,
+      speed_mps: aprsLastLocalFix.speed_mps,
+    });
+  }
+  const res = await aprsPost('/api/aprs/beacon', {});
+  aprsRenderStatus(res);
+  if (res.ok === false && res.error) alert(res.error);
+  else if (res.message) {
+    /* ok */
+  }
+}
+
+function aprsRenderStatus(s) {
+  if (s && !s.error) aprsLastStatus = s;
+  if (!s || s.error === 'aprs_is module missing') {
+    const el = $('#aprs-is-state');
+    if (el) el.textContent = 'NO MODULE';
+    return;
+  }
+  const isEl = $('#aprs-is-state');
+  if (isEl) {
+    if (s.is_connected) {
+      isEl.textContent = s.login_verified === false ? 'UNVERIFIED' : 'ONLINE';
+      isEl.style.color = s.login_verified === false ? 'var(--neon-yellow)' : 'var(--neon-green)';
+    } else {
+      isEl.textContent = 'OFFLINE';
+      isEl.style.color = 'var(--neon-red)';
+    }
+  }
+  const bEl = $('#aprs-beacon-state');
+  if (bEl) {
+    bEl.textContent = s.beacon_on ? 'ARMED' : 'OFF';
+    bEl.style.color = s.beacon_on ? 'var(--neon-yellow)' : '#888';
+  }
+  const onBtn = $('#aprs-beacon-on');
+  const offBtn = $('#aprs-beacon-off');
+  if (onBtn) onBtn.classList.toggle('active-on', !!s.beacon_on);
+  if (offBtn) offBtn.classList.toggle('active-off', !s.beacon_on);
+
+  const txEl = $('#aprs-last-tx');
+  if (txEl) {
+    if (s.last_tx_age_sec == null) txEl.textContent = 'never';
+    else if (s.last_tx_age_sec < 60) txEl.textContent = Math.round(s.last_tx_age_sec) + 's ago';
+    else txEl.textContent = Math.round(s.last_tx_age_sec / 60) + 'm ago';
+  }
+  const gEl = $('#aprs-gps-age');
+  if (gEl) {
+    const age = s.gps && s.gps.age_sec;
+    if (age == null) gEl.textContent = 'no fix';
+    else if (s.gps.stale) gEl.textContent = Math.round(age) + 's STALE';
+    else gEl.textContent = Math.round(age) + 's';
+  }
+  aprsInitFields(s);
+}
+
+async function aprsRefresh() {
+  try {
+    const s = await fetch('/api/aprs/status').then(r => r.json());
+    aprsRenderStatus(s);
+  } catch (e) {}
+  await aprsRefreshNearby();
+}
+
+async function aprsRefreshNearby() {
+  try {
+    const d = await fetch('/api/aprs/nearby').then(r => r.json());
+    if (d.status) aprsRenderStatus(d.status);
+    const stations = d.stations || [];
+    aprsLastStations = stations;
+    if (activeTab === 'aprs') {
+      aprsMapEnsure();
+      aprsMapUpdateMarkers(stations, d.status || aprsLastStatus);
+      aprsMapInvalidate();
+    }
+    const list = $('#aprs-nearby');
+    if (!list) return;
+    if (!stations.length) {
+      list.innerHTML = '<div class="nearby-row"><span class="meta">No stations in range yet (GPS + IS filter)</span></div>';
+      // still show self on map if we have GPS
+      return;
+    }
+    list.innerHTML = '';
+    stations.forEach(st => {
+      const row = document.createElement('div');
+      row.className = 'nearby-row';
+      const dist = st.distance_km != null ? st.distance_km.toFixed(1) + ' km' : '?';
+      const age = st.age_sec != null
+        ? (st.age_sec < 60 ? st.age_sec + 's' : Math.round(st.age_sec / 60) + 'm')
+        : '';
+      const cse = st.course != null ? st.course + '°' : '';
+      const spd = st.speed != null ? st.speed + ' kn' : '';
+      row.innerHTML =
+        '<div class="cs">' + escapeHtml(st.callsign || '?') + '</div>'
+        + '<div class="meta">' + [dist, age, cse, spd, st.symbol_table && st.symbol ? (st.symbol_table + st.symbol) : ''].filter(Boolean).join(' · ') + '</div>'
+        + (st.comment ? '<div class="cmt">' + escapeHtml(st.comment) + '</div>' : '')
+        + '<div class="nearby-detail">'
+        + 'lat ' + (st.lat != null ? st.lat.toFixed(5) : '?')
+        + ' lon ' + (st.lon != null ? st.lon.toFixed(5) : '?')
+        + (st.comment ? '<br>comment: ' + escapeHtml(st.comment) : '')
+        + '</div>';
+      row.onclick = () => {
+        row.classList.toggle('open');
+        if (aprsMap && st.lat != null && st.lon != null) {
+          aprsMap.setView([st.lat, st.lon], Math.max(aprsMap.getZoom(), 12));
+        }
+      };
+      list.appendChild(row);
+    });
+  } catch (e) {
+    const list = $('#aprs-nearby');
+    if (list) list.innerHTML = '<div class="nearby-row"><span class="meta">Nearby fetch failed</span></div>';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function aprsRequestWakeLock() {
+  try {
+    if (navigator.wakeLock && navigator.wakeLock.request) {
+      aprsWakeLock = await navigator.wakeLock.request('screen');
+      aprsWakeLock.addEventListener('release', () => { aprsWakeLock = null; });
+    }
+  } catch (e) { /* iOS may deny */ }
+}
+function aprsReleaseWakeLock() {
+  try {
+    if (aprsWakeLock) { aprsWakeLock.release(); aprsWakeLock = null; }
+  } catch (e) {}
+}
+
+// Poll APRS status while on that tab
+setInterval(() => {
+  if (activeTab === 'aprs') aprsRefresh();
+}, 8000);
+// Preload defaults once
+aprsRefresh();
+
+// === PWA Install Support (for Chrome address bar + manual button) ===
+let deferredPrompt = null;
+
+function showHttpsNote() {
+  // Add a small note/banner if not on HTTPS (Chrome requires HTTPS for native bar button)
+function httpsHintUrl() {
+  // Suggest the name the browser already used; an IP literal can't have a
+  // valid cert, so callers fall back to generic wording.
+  const h = location.hostname;
+  if (!h || /^[0-9.]+$/.test(h) || h.includes(':')) return '';
+  return 'https://' + h;
+}
+
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+  if (!isSecure) {
+    const note = document.createElement('div');
+    note.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#330;background:#222;color:#ff0;padding:6px 10px;font-size:11px;text-align:center;z-index:9999;border-top:1px solid #444;';
+    note.innerHTML = httpsHintUrl()
+      ? '⚠️ For the Chrome address-bar install button, open <b>' + escapeHtml(httpsHintUrl()) + '</b> (HTTPS + a valid cert). Plain HTTP will not show it.'
+      : '⚠️ For the Chrome address-bar install button, reach this dashboard over HTTPS by a hostname (Tailscale cert or a reverse proxy). Bare IPs over HTTP will not show it.';
+    document.body.appendChild(note);
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'inline-block';
+});
+
+function triggerInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+    return;
+  }
+  const url = httpsHintUrl() || ('https://' + location.hostname);
+  alert('Chrome install button in address bar only appears over HTTPS.\n\n1. Visit ' + url + '\n2. Interact with the page (click buttons, stay a bit)\n3. Look for the + install icon in the address bar, or use ⋮ menu → "Install CyberFusion"\n\nOn HTTP it is blocked for security.');
+  // Optional: try to open the secure version
+  if (confirm('Open the HTTPS version now?')) {
+    window.open(url, '_blank');
+  }
+}
+
+// Register SW (required for full PWA installability)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('static/sw.js').catch(console.warn);
+  });
+}
+
+window.addEventListener('load', () => {
+  showHttpsNote();
+  // Add a floating or header install button if not present
+  if (!document.getElementById('pwa-install-btn')) {
+    const header = document.querySelector('header') || document.body;
+    const btn = document.createElement('button');
+    btn.id = 'pwa-install-btn';
+    btn.textContent = '⤓ Install App';
+    btn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:10px;background:#003;background:#222;color:#0ff;border:1px solid #0ff;cursor:pointer;';
+    btn.onclick = triggerInstall;
+    // Try to append near title
+    const title = document.querySelector('.cyber-title') || header;
+    if (title.parentNode) title.parentNode.insertBefore(btn, title.nextSibling);
+    else header.appendChild(btn);
+    // Hide if no prompt yet, but keep visible for manual
+    btn.style.display = 'inline-block';
+  }
+});
 </script>
 </body>
 </html>

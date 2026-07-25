@@ -13,18 +13,44 @@ import os
 import re
 import threading
 import time
+import urllib.parse
 from collections import deque
 from datetime import datetime, timezone
 
-PORT = int(os.environ.get("PORT", "80"))
+PORT = int(os.environ.get("PORT", "5000"))
 DASH_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(DASH_DIR, "static")
 LOCAL_CALLSIGN = os.environ.get("LOCAL_CALLSIGN", "CHANGEME")
 SITE_TITLE = os.environ.get("SITE_TITLE", "CYBERFUSION HOTSPOT")
 HOTSPOT_FREQ_MHZ = os.environ.get("HOTSPOT_FREQ_MHZ", "446.000")
 
+# APRS-IS mobile beacon (phone GPS → IS). Pure stdlib module next to this file.
+try:
+    from aprs_is import get_service as get_aprs_service
+except ImportError:
+    get_aprs_service = None
+
 # Simple in-memory last link
 LAST = ""
+
+BUTTONS_FILE = os.path.join(DASH_DIR, "quick_buttons.json")
+DEFAULT_BUTTONS = [
+    {"label": "Kansas City", "target": "US-Kansas-City"},
+    {"label": "America Link", "target": "US-America Link"},
+    {"label": "Texas Fusion", "target": "US-TEXAS-DFW"},
+    {"label": "Worldwide", "target": "GB-CQ-WORLD"},
+]
+
+HOSTS_SEARCH_PATHS = [
+    os.path.join(DASH_DIR, "YSFHosts-min.json"),
+    os.path.join(DASH_DIR, "../configs/YSFHosts.json"),
+    os.path.join(DASH_DIR, "../YSFHosts-min.json"),
+    "/usr/local/etc/YSFHosts.json",
+    "/usr/local/etc/YSFHosts-min.json",
+]
+
+ROOMS_CACHE = None
+ROOMS_LOCK = threading.Lock()
 
 TRAFFIC_LOCK = threading.Lock()
 TRAFFIC = {
@@ -51,6 +77,143 @@ _TRAFFIC_PATTERNS = {
         r"YSF, received network end of transmission from (.+?) to DG-ID (\d+) at (.+?), ([\d.]+) seconds"
     ),
 }
+
+
+def load_buttons():
+    try:
+        if os.path.isfile(BUTTONS_FILE):
+            with open(BUTTONS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    return [
+                        {
+                            "label": str(b.get("label", b.get("target", "")))[:32],
+                            "target": str(b.get("target", ""))[:64],
+                        }
+                        for b in data[:4]
+                        if b.get("target")
+                    ]
+    except Exception:
+        pass
+    return [b.copy() for b in DEFAULT_BUTTONS]
+
+
+def save_buttons(btns):
+    try:
+        clean = []
+        for b in (btns or [])[:4]:
+            t = str(b.get("target", "")).strip() if isinstance(b, dict) else str(b).strip()
+            if t:
+                lbl = str(b.get("label", t)).strip()[:32] if isinstance(b, dict) else t
+                clean.append({"label": lbl, "target": t[:64]})
+        with open(BUTTONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(clean, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def load_rooms():
+    global ROOMS_CACHE
+    if ROOMS_CACHE is not None:
+        return ROOMS_CACHE
+    with ROOMS_LOCK:
+        # Re-check: another thread may have built it while we waited.
+        if ROOMS_CACHE is not None:
+            return ROOMS_CACHE
+        return _load_rooms_locked()
+
+
+def _load_rooms_locked():
+    global ROOMS_CACHE
+    rooms = []
+    seen = set()
+    for p in HOSTS_SEARCH_PATHS:
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for r in data.get("reflectors", []):
+                name = (r.get("name") or "").strip()
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                country = (r.get("country") or "").strip()
+                # YSFGateway matches on the composed name it builds in
+                # YSFReflectors.cpp: "XX-<name>" or "<country>-<name>".
+                # Linking with the bare name ("KCWide") never resolves.
+                if r.get("use_xx_prefix"):
+                    target = "XX-" + name
+                else:
+                    target = (country + "-" + name) if country else name
+                rooms.append({
+                    "name": name,
+                    "desc": (r.get("description") or "").strip(),
+                    "country": country,
+                    "id": str(r.get("designator") or "").strip(),
+                    "target": target,
+                })
+            break
+        except Exception:
+            continue
+    rooms.sort(key=lambda x: x["name"].upper())
+    ROOMS_CACHE = rooms
+    return rooms
+
+
+def get_rooms(q=None, limit=200):
+    rooms = load_rooms()
+    if q:
+        qq = q.strip().upper()
+        # Accept "32453", "YSF32453" and "#32453" as designator searches.
+        qn = qq.lstrip("#").strip()
+        if qn.startswith("YSF"):
+            qn = qn[3:].strip()
+        if qq:
+            matched = [
+                r for r in rooms
+                if qq in r["name"].upper()
+                or qq in r.get("target", "").upper()
+                or qq in r.get("desc", "").upper()
+                or (qn.isdigit() and qn in r.get("id", ""))
+            ]
+            # Exact designator hit first (KCWide for "32453"), then the rest.
+            if qn.isdigit():
+                matched.sort(key=lambda r: r.get("id", "").lstrip("0") != qn.lstrip("0"))
+            rooms = matched
+    return rooms[:limit]
+
+
+def get_mime(full):
+    ext = os.path.splitext(full)[1].lower()
+    mimes = {
+        ".html": "text/html; charset=utf-8",
+        ".css": "text/css",
+        ".js": "application/javascript",
+        ".json": "application/json",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".svg": "image/svg+xml",
+        ".ico": "image/x-icon",
+        ".webmanifest": "application/manifest+json",
+    }
+    return mimes.get(ext, "application/octet-stream")
+
+
+def _wifi_fallback_bin():
+    override = os.environ.get("WIFI_FALLBACK", "").strip()
+    if override and os.path.isfile(override):
+        return override
+    for path in (
+        "/usr/local/bin/cyberfusion-wifi-fallback",
+        # Legacy name used by earlier installs; set WIFI_FALLBACK to override.
+        "/usr/local/bin/wy6y-wifi-fallback",
+    ):
+        if os.path.isfile(path):
+            return path
+    return "/usr/local/bin/cyberfusion-wifi-fallback"
 
 
 def _clean_callsign(value):
@@ -225,7 +388,7 @@ def _ap_ssid_from_hostapd():
 
 
 def wifi_fallback(*args, timeout=45):
-    return run("/usr/local/bin/cyberfusion-wifi-fallback", list(args), timeout=timeout)
+    return run(_wifi_fallback_bin(), list(args), timeout=timeout)
 
 
 def _wifi_active_name():
@@ -402,26 +565,89 @@ def wifi_delete_network(target):
     return nmcli("connection", "delete", name, timeout=20)
 
 
+# Extra hostnames allowed to POST, comma-separated (e.g. a new proxy name).
+# The serving Host is always allowed, so this is usually left empty.
+ALLOWED_ORIGIN_HOSTS = {
+    h.strip().lower()
+    for h in os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    if h.strip()
+}
+
+
+def origin_allowed(handler):
+    """CSRF guard for state-changing POSTs.
+
+    Browsers always send Origin on a cross-origin POST, so an Origin that
+    disagrees with the Host we were reached on is a reliable CSRF signal.
+    Non-browser clients (curl, scripts, CyberHUD) send no Origin at all, and
+    absence is allowed on purpose: anyone able to craft a raw request can
+    already reach the API directly, so refusing it would break tooling
+    without adding protection.
+    """
+    origin = (handler.headers.get("Origin") or "").strip()
+    if not origin:
+        return True
+    o_host = urllib.parse.urlparse(origin).hostname
+    if not o_host:
+        return False
+    o_host = o_host.lower()
+    if o_host in ALLOWED_ORIGIN_HOSTS:
+        return True
+    host_hdr = (handler.headers.get("Host") or "").strip()
+    if host_hdr:
+        # Host is "name", "name:port", or a bracketed IPv6 literal.
+        h = urllib.parse.urlsplit("//" + host_hdr).hostname
+        if h and h.lower() == o_host:
+            return True
+    return False
+
+
+def safe_under(base, sub):
+    """Resolve sub inside base, or None if it escapes.
+
+    do_GET is fully overridden, so SimpleHTTPRequestHandler's own path
+    sanitising never runs and self.path arrives raw from the request line
+    ("/icons/../../../etc/passwd" used to serve /etc/passwd).
+    """
+    sub = urllib.parse.unquote(sub).split("?", 1)[0].split("#", 1)[0]
+    if "\x00" in sub:
+        return None
+    base_real = os.path.realpath(base)
+    full = os.path.realpath(os.path.join(base_real, sub.lstrip("/")))
+    if full != base_real and not full.startswith(base_real + os.sep):
+        return None
+    return full
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
+            # UI ships inline in this file; without this a stale copy sticks
+            # around after a deploy until a manual hard-refresh.
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
             self.end_headers()
             with open(os.path.join(STATIC_DIR, "index.html"), "rb") as f:
                 self.wfile.write(f.read())
             return
 
-        if self.path.startswith("/static/"):
-            # Very basic static serving
-            safe = self.path[1:]  # remove leading /
-            full = os.path.join(DASH_DIR, safe)
-            if os.path.isfile(full):
-                ctype = "text/css" if full.endswith(".css") else "application/javascript" if full.endswith(".js") else "text/plain"
+        if self.path.startswith("/static/") or self.path.startswith("/icons/") or self.path in ("/manifest.json", "/favicon.ico"):
+            if self.path == "/manifest.json":
+                full = os.path.join(STATIC_DIR, "manifest.json")
+            elif self.path == "/favicon.ico":
+                full = os.path.join(STATIC_DIR, "icons", "cyberfusion-icon.jpg")
+            elif self.path.startswith("/icons/"):
+                full = safe_under(os.path.join(STATIC_DIR, "icons"), self.path[len("/icons/"):])
+            else:
+                full = safe_under(STATIC_DIR, self.path[len("/static/"):])
+            if full and os.path.isfile(full):
                 self.send_response(200)
-                self.send_header("Content-type", ctype)
+                self.send_header("Content-type", get_mime(full))
+                self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
-                with open(full, "rb") as f: self.wfile.write(f.read())
+                with open(full, "rb") as f:
+                    self.wfile.write(f.read())
                 return
 
         if self.path == "/api/site":
@@ -467,9 +693,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json({"ok": ok, "networks": networks, "error": err})
             return
 
+        if self.path == "/api/buttons":
+            self._json({"buttons": load_buttons()})
+            return
+
+        if self.path.startswith("/api/rooms"):
+            q = ""
+            if "?" in self.path:
+                qs = self.path.split("?", 1)[1]
+                params = urllib.parse.parse_qs(qs)
+                q = params.get("q", [""])[0]
+            self._json({"rooms": get_rooms(q)})
+            return
+
         if self.path == "/api/log":
             lines = []
-            ysf_log = os.path.expanduser("~/tmp/ysf.log") if os.path.isfile("/tmp/ysf.log") else "/tmp/ysf.log"
+            ysf_log = "/tmp/ysf.log"
             if os.path.isfile(ysf_log):
                 try:
                     with open(ysf_log, "r", errors="replace") as f:
@@ -489,11 +728,46 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"lines": lines}).encode())
             return
 
+        if self.path == "/api/aprs/status":
+            if not get_aprs_service:
+                self._json({"ok": False, "error": "aprs_is module missing"})
+                return
+            self._json(get_aprs_service().status())
+            return
+
+        if self.path == "/api/aprs/nearby":
+            if not get_aprs_service:
+                self._json({"ok": False, "error": "aprs_is module missing", "stations": []})
+                return
+            svc = get_aprs_service()
+            self._json({"ok": True, "stations": svc.nearby(), "status": svc.status()})
+            return
+
         self.send_response(404)
+        self.end_headers()
+
+    def do_HEAD(self):
+        # SimpleHTTPRequestHandler's do_HEAD serves DASH_DIR straight off the
+        # filesystem, bypassing the routing above (HEAD /quick_buttons.json
+        # answered 200 while GET correctly 404'd). Answer it ourselves.
+        self.send_response(200 if self.path in ("/", "/index.html") else 404)
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
 
     def do_POST(self):
         global LAST
+        if not origin_allowed(self):
+            # flush: stdout is block-buffered under systemd, so without this
+            # the line sits in the buffer instead of reaching the journal.
+            print("CSRF: blocked POST %s Origin=%r Host=%r" % (
+                self.path, self.headers.get("Origin"), self.headers.get("Host")),
+                flush=True)
+            self.send_response(403)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(
+                {"ok": False, "error": "cross-origin POST blocked"}).encode())
+            return
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode() if length else ""
         data = {}
@@ -560,6 +834,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             else:
                 ok, msg = True, json.dumps(wifi_status_data())
             self._json({"ok": ok, "message": msg})
+
+        elif self.path == "/api/buttons":
+            btns = data.get("buttons")
+            ok = save_buttons(btns)
+            self._json({"ok": bool(ok), "buttons": load_buttons()})
+
+        elif self.path == "/api/aprs/position":
+            if not get_aprs_service:
+                self._json({"ok": False, "error": "aprs_is module missing"})
+                return
+            lat = data.get("lat")
+            lon = data.get("lon")
+            if lat is None or lon is None:
+                self._json({"ok": False, "error": "lat and lon required"})
+                return
+            result = get_aprs_service().set_position(
+                lat,
+                lon,
+                accuracy=data.get("accuracy"),
+                course=data.get("course"),
+                speed_mps=data.get("speed_mps", data.get("speed")),
+            )
+            self._json(result)
+
+        elif self.path == "/api/aprs/control":
+            if not get_aprs_service:
+                self._json({"ok": False, "error": "aprs_is module missing"})
+                return
+            self._json(get_aprs_service().control(data or {}))
+
+        elif self.path == "/api/aprs/beacon":
+            if not get_aprs_service:
+                self._json({"ok": False, "error": "aprs_is module missing"})
+                return
+            self._json(get_aprs_service().force_beacon())
+
         else:
             self._json({"ok": False, "error": "unknown"})
 
@@ -572,7 +882,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     os.chdir(DASH_DIR)
     threading.Thread(target=_tail_mmdvm_journal, daemon=True).start()
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("0.0.0.0", PORT), Handler) as httpd:
+    if get_aprs_service:
+        try:
+            get_aprs_service()
+            print("APRS-IS mobile service started")
+        except Exception as exc:
+            print(f"APRS-IS service failed to start: {exc}")
+    # Threaded: plain TCPServer serialises requests, so one slow call
+    # (ysf-link, nmcli rescan) froze the whole UI while it polls 4
+    # endpoints every 5s.
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.daemon_threads = True
+    with socketserver.ThreadingTCPServer(("0.0.0.0", PORT), Handler) as httpd:
         print(f"CyberFusion dashboard on port {PORT}")
         httpd.serve_forever()

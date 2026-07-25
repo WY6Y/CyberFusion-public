@@ -1,16 +1,26 @@
 [Unit]
 Description=CyberFusion Dashboard (stdlib)
 After=network.target
+
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/opt/cyberfusion-dashboard
+Environment=PORT=5000
 Environment=LOCAL_CALLSIGN=CHANGEME
 Environment=SITE_TITLE=CYBERFUSION HOTSPOT
 Environment=HOTSPOT_FREQ_MHZ=446.000
+# APRS mobile tab (IS-only; separate from any RF digi/IGate you run)
+Environment=APRS_CALLSIGN=N0CALL-9
+Environment=APRS_DEFAULT_FREQ=146.520
+Environment=APRS_COMMENT=CyberFusion mobile
+Environment=APRS_RANGE_KM=50
+Environment=APRSIS_HOST=noam.aprs2.net
+Environment=APRSIS_PORT=14580
 ExecStart=/usr/bin/python3 /opt/cyberfusion-dashboard/cyberfusion-dash.py
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 Restart=always
 RestartSec=5
+
 [Install]
 WantedBy=multi-user.target

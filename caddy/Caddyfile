@@ -1,0 +1,24 @@
+{
+    auto_https off
+}
+
+# CyberFusion YSF Hotspot Dashboard
+# Use the machine's Tailscale name for valid cert.
+your-hotspot.your-tailnet.ts.net {
+    tls /etc/caddy/certs/your-hotspot.your-tailnet.ts.net.crt /etc/caddy/certs/your-hotspot.your-tailnet.ts.net.key
+
+    # Proxy to the dashboard (running on 5000 by default in this setup)
+    reverse_proxy 127.0.0.1:5000
+
+    # Optional: add security headers for PWA
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer-when-downgrade
+    }
+}
+
+# Short name redirect if you set up /etc/hosts or Tailscale DNS
+http://MY-CF {
+    redir https://your-hotspot.your-tailnet.ts.net{uri} permanent
+}
